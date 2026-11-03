@@ -1,0 +1,15 @@
+node_modules/
+dist/
+release/
+.research/
+test-results/
+*.log
+
+# Local credentials and machine-specific settings.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.DS_Store
+Thumbs.db

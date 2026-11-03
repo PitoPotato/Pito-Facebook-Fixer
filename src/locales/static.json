@@ -1,0 +1,470 @@
+{
+  "app.settingsTitle": {
+    "en": "PitoFacebookFixer · Settings",
+    "vi": "PitoFacebookFixer · Cài đặt"
+  },
+  "skip": {
+    "en": "Skip to content",
+    "vi": "Đến nội dung"
+  },
+  "brandHome": {
+    "en": "PitoFacebookFixer — Overview",
+    "vi": "PitoFacebookFixer — Tổng quan"
+  },
+  "workspaceCaps": {
+    "en": "YOUR SPACE",
+    "vi": "KHÔNG GIAN CỦA BẠN"
+  },
+  "navLabel": {
+    "en": "Extension settings",
+    "vi": "Cài đặt extension"
+  },
+  "overview": {
+    "en": "Overview",
+    "vi": "Tổng quan"
+  },
+  "storage": {
+    "en": "Storage",
+    "vi": "Lưu trữ"
+  },
+  "archive": {
+    "en": "Archive",
+    "vi": "Bản lưu"
+  },
+  "diagnostics": {
+    "en": "Diagnostics",
+    "vi": "Chẩn đoán"
+  },
+  "localDevice": {
+    "en": "Your data stays on this device",
+    "vi": "Dữ liệu ở trên máy bạn"
+  },
+  "noSync": {
+    "en": "No server sync",
+    "vi": "Không đồng bộ lên máy chủ"
+  },
+  "beta": {
+    "en": "Beta",
+    "vi": "Bản thử nghiệm"
+  },
+  "workspace": {
+    "en": "Personal space",
+    "vi": "Không gian cá nhân"
+  },
+  "readingSettings": {
+    "en": "Loading settings…",
+    "vi": "Đang đọc cài đặt…"
+  },
+  "theme": {
+    "en": "Change appearance",
+    "vi": "Đổi giao diện"
+  },
+  "overviewEyebrow": {
+    "en": "A LITTLE LESS FRICTION",
+    "vi": "MỘT CHÚT DỄ CHỊU MỖI NGÀY"
+  },
+  "overviewTitle": {
+    "en": "Facebook, on your terms.",
+    "vi": "Facebook, theo ý bạn."
+  },
+  "overviewIntro": {
+    "en": "Fewer interruptions. Keep what matters.",
+    "vi": "Ít gián đoạn hơn. Giữ lại những điều cần thiết."
+  },
+  "connecting": {
+    "en": "Connecting",
+    "vi": "Đang kết nối"
+  },
+  "connectingDots": {
+    "en": "Connecting…",
+    "vi": "Đang kết nối…"
+  },
+  "messageStorage": {
+    "en": "Message storage",
+    "vi": "Kho tin nhắn"
+  },
+  "manage": {
+    "en": "Manage",
+    "vi": "Quản lý"
+  },
+  "readingStorage": {
+    "en": "Loading storage…",
+    "vi": "Đang đọc kho…"
+  },
+  "storageMeter": {
+    "en": "Message storage usage",
+    "vi": "Dung lượng kho tin nhắn"
+  },
+  "shortStorageMeter": {
+    "en": "Storage usage",
+    "vi": "Dung lượng kho"
+  },
+  "storedMessages": {
+    "en": "Stored messages",
+    "vi": "Tin đang lưu"
+  },
+  "recalled": {
+    "en": "Recalled",
+    "vi": "Đã thu hồi"
+  },
+  "evicted": {
+    "en": "Auto-cleaned",
+    "vi": "Đã tự dọn"
+  },
+  "privateTitle": {
+    "en": "Your archive. Your device.",
+    "vi": "Một kho riêng, trên máy bạn."
+  },
+  "privateDescription": {
+    "en": "Your archive stays in this browser. You choose what to keep and when to clean up.",
+    "vi": "Nội dung bản lưu nằm trong trình duyệt này. Bạn quyết định giữ bao lâu và dọn lúc nào."
+  },
+  "localStorage": {
+    "en": "Stored locally",
+    "vi": "Lưu cục bộ"
+  },
+  "daily": {
+    "en": "Everyday experience",
+    "vi": "Trải nghiệm hằng ngày"
+  },
+  "switchAutoSave": {
+    "en": "Switches save automatically",
+    "vi": "Công tắc được lưu ngay"
+  },
+  "focus": {
+    "en": "Keep typing focus",
+    "vi": "Giữ ô đang soạn tin"
+  },
+  "focusHelp": {
+    "en": "Keep new chat popups from taking focus while you type.",
+    "vi": "Popup chat mới không tự lấy con trỏ khi bạn đang gõ."
+  },
+  "reload": {
+    "en": "Reduce automatic refreshes",
+    "vi": "Hạn chế tự làm mới"
+  },
+  "reloadHelp": {
+    "en": "Keep your place during some automatic Facebook refreshes and redirects.",
+    "vi": "Giữ trang ổn định trước một số điều hướng tự động của Facebook."
+  },
+  "capture": {
+    "en": "Save and restore recalled messages",
+    "vi": "Lưu và hiện tin thu hồi"
+  },
+  "captureHelp": {
+    "en": "Save text, emoji, photos and voice notes. Restore them inside the Facebook message bubble.",
+    "vi": "Lưu văn bản, emoji, ảnh và voice; hiển thị trong bong bóng Facebook khi thu hồi."
+  },
+  "story": {
+    "en": "Hide story views",
+    "vi": "Chặn đã xem story"
+  },
+  "development": {
+    "en": "In development",
+    "vi": "Đang phát triển"
+  },
+  "storyHelp": {
+    "en": "Temporarily unavailable. Facebook currently records story views as usual.",
+    "vi": "Tạm ngưng để hoàn thiện. Hiện tại, Facebook vẫn ghi nhận lượt xem bình thường."
+  },
+  "storyDisabled": {
+    "en": "Hide story views — in development",
+    "vi": "Chặn đã xem story — đang phát triển"
+  },
+  "captureNote": {
+    "en": "Only content saved before recall can be restored. Reload Facebook after updating the extension.",
+    "vi": "Chỉ khôi phục được nội dung đã lưu trước lúc thu hồi. Tải lại trang sau khi cập nhật extension."
+  },
+  "storageEyebrow": {
+    "en": "STORAGE, UNDER CONTROL",
+    "vi": "DUNG LƯỢNG TRONG TẦM KIỂM SOÁT"
+  },
+  "storageTitle": {
+    "en": "Keep what you need.",
+    "vi": "Lưu những gì bạn cần."
+  },
+  "storageIntro": {
+    "en": "Set limits that fit the way you use Messenger.",
+    "vi": "Đặt giới hạn phù hợp với cách bạn sử dụng Messenger."
+  },
+  "thisDevice": {
+    "en": "On this device",
+    "vi": "Trên thiết bị này"
+  },
+  "limits": {
+    "en": "Storage limits",
+    "vi": "Giới hạn kho"
+  },
+  "oldFirst": {
+    "en": "Oldest eligible first",
+    "vi": "Dọn tin cũ trước"
+  },
+  "retentionIntro": {
+    "en": "Age starts when the extension first saves a message. Set 0 days to disable age-based cleanup.",
+    "vi": "Tuổi tin tính từ lần extension lưu đầu tiên. 0 ngày nghĩa là không dọn theo tuổi."
+  },
+  "budget": {
+    "en": "Storage budget",
+    "vi": "Ngân sách dữ liệu"
+  },
+  "budgetRange": {
+    "en": "2 to 8,192 MiB",
+    "vi": "Từ 2 đến 8.192 MiB"
+  },
+  "messageLimit": {
+    "en": "Maximum messages",
+    "vi": "Số tin tối đa"
+  },
+  "messagesUnit": {
+    "en": "messages",
+    "vi": "tin"
+  },
+  "messageRange": {
+    "en": "100 to 100,000 messages",
+    "vi": "Từ 100 đến 100.000 tin"
+  },
+  "retention": {
+    "en": "Retention period",
+    "vi": "Thời gian lưu"
+  },
+  "days": {
+    "en": "days",
+    "vi": "ngày"
+  },
+  "noAge": {
+    "en": "0 = no age limit",
+    "vi": "0 = không giới hạn tuổi"
+  },
+  "mediaRetention": {
+    "en": "Separate photo and voice retention",
+    "vi": "Thời hạn riêng cho ảnh và voice"
+  },
+  "imageRetention": {
+    "en": "Photo retention",
+    "vi": "Thời hạn ảnh"
+  },
+  "voiceRetention": {
+    "en": "Voice retention",
+    "vi": "Thời hạn voice"
+  },
+  "mediaRetentionHelp": {
+    "en": "0 = use message retention. Expired files are removed while text and other file types stay. Cleaned files are not automatically downloaded again for the same message.",
+    "vi": "0 = theo thời hạn của tin. Khi tệp hết hạn, giữ lại chữ và loại tệp còn lại. Tệp đã dọn không tự tải lại cho cùng mã tin."
+  },
+  "limitsSaved": {
+    "en": "Limits saved",
+    "vi": "Giới hạn đã được lưu"
+  },
+  "applyLimits": {
+    "en": "Apply limits",
+    "vi": "Áp dụng giới hạn"
+  },
+  "captureCleanup": {
+    "en": "Capture and cleanup",
+    "vi": "Cách lưu và dọn"
+  },
+  "autoSave": {
+    "en": "Changes save automatically",
+    "vi": "Tự lưu khi thay đổi"
+  },
+  "cleanupRecalled": {
+    "en": "Allow cleanup of recalled messages",
+    "vi": "Cho phép tự dọn tin đã thu hồi"
+  },
+  "cleanupRecalledHelp": {
+    "en": "Turn off to protect recalled messages and their files. If protected content fills the budget, keep it and pause new captures.",
+    "vi": "Tắt để bảo vệ cả nội dung và tệp. Khi phần được bảo vệ làm đầy kho, giữ nguyên và dừng lưu mới."
+  },
+  "autoVoice": {
+    "en": "Download voice notes automatically",
+    "vi": "Tự tải voice để lưu"
+  },
+  "autoVoiceHelp": {
+    "en": "Try to save visible voice notes without playing them. Notes recalled before the download finishes may still be lost.",
+    "vi": "Thử tải voice đang hiển thị mà không phát tiếng. Tệp chưa tải xong vẫn có thể bị mất khi thu hồi."
+  },
+  "cleanupTitle": {
+    "en": "Clean up on your terms",
+    "vi": "Dọn theo nhu cầu"
+  },
+  "cleanupIntro": {
+    "en": "Remove only the file type you choose. Files in recalled messages are kept by default.",
+    "vi": "Chỉ dọn loại tệp bạn chọn. Mặc định giữ tệp trong tin đã thu hồi."
+  },
+  "cleanImages": {
+    "en": "Clean up photos",
+    "vi": "Dọn riêng ảnh"
+  },
+  "cleanVoice": {
+    "en": "Clean up voice notes",
+    "vi": "Dọn riêng voice"
+  },
+  "deleteSummary": {
+    "en": "Remove all saved text and files",
+    "vi": "Xóa cả nội dung lẫn tệp đã lưu"
+  },
+  "clearAll": {
+    "en": "Clear entire archive",
+    "vi": "Xóa toàn bộ kho"
+  },
+  "storageNote": {
+    "en": "The budget covers saved data; browser overhead uses extra space. Up to 20 files/message, 8 MiB/file and 16 MiB/message. The archive is not password-encrypted. Uninstalling deletes it.",
+    "vi": "Ngân sách tính trên dữ liệu đã lưu; trình duyệt cần thêm dung lượng quản lý. Tối đa 20 tệp/tin, 8 MiB/tệp, 16 MiB/tin. Kho chưa mã hóa bằng mật khẩu; gỡ extension sẽ xóa kho."
+  },
+  "archiveEyebrow": {
+    "en": "WHAT YOU KEPT",
+    "vi": "NHỮNG ĐIỀU ĐÃ GIỮ LẠI"
+  },
+  "archiveTitle": {
+    "en": "Your recalled messages.",
+    "vi": "Bản lưu tin thu hồi."
+  },
+  "archiveIntro": {
+    "en": "Revisit content the extension saved on this device before it was recalled.",
+    "vi": "Xem lại nội dung extension đã kịp lưu trên thiết bị này."
+  },
+  "refresh": {
+    "en": "Refresh",
+    "vi": "Làm mới"
+  },
+  "searchLabel": {
+    "en": "Filter archived messages on this page",
+    "vi": "Lọc bản lưu trong trang này"
+  },
+  "searchPlaceholder": {
+    "en": "Filter messages on this page…",
+    "vi": "Lọc nội dung trong trang này…"
+  },
+  "pageSize": {
+    "en": "30 messages / page",
+    "vi": "30 tin / trang"
+  },
+  "readingArchive": {
+    "en": "Loading archive…",
+    "vi": "Đang đọc bản lưu…"
+  },
+  "olderPage": {
+    "en": "Older messages",
+    "vi": "Xem trang cũ hơn"
+  },
+  "diagnosticsEyebrow": {
+    "en": "WHEN YOU NEED A CLOSER LOOK",
+    "vi": "KHI BẠN CẦN KIỂM TRA"
+  },
+  "diagnosticsTitle": {
+    "en": "Is everything running?",
+    "vi": "Mọi thứ có đang chạy?"
+  },
+  "diagnosticsIntro": {
+    "en": "Check the connection and activity on your open Facebook tab.",
+    "vi": "Kiểm tra kết nối và hoạt động trên tab Facebook đang mở."
+  },
+  "checkAgain": {
+    "en": "Check again",
+    "vi": "Kiểm tra lại"
+  },
+  "fbConnection": {
+    "en": "Facebook connection",
+    "vi": "Kết nối Facebook"
+  },
+  "findingTab": {
+    "en": "Looking for a tab…",
+    "vi": "Đang tìm tab…"
+  },
+  "reloadNote": {
+    "en": "After updating the extension, reload Facebook once to load the new version.",
+    "vi": "Sau khi cập nhật extension, tải lại tab Facebook một lần để nạp bản mới."
+  },
+  "activity": {
+    "en": "Activity details",
+    "vi": "Thông tin hoạt động"
+  },
+  "currentTab": {
+    "en": "Current tab",
+    "vi": "Trên tab hiện tại"
+  },
+  "counterNote": {
+    "en": "Counters reflect what the extension observes. They do not prove the sender’s state.",
+    "vi": "Bộ đếm phản ánh những gì extension quan sát được, không chứng minh trạng thái phía người gửi."
+  },
+  "footer": {
+    "en": "A small extension for a better experience.",
+    "vi": "Một tiện ích nhỏ, cho trải nghiệm tốt hơn."
+  },
+  "clearTitle": {
+    "en": "Clear the entire archive?",
+    "vi": "Xóa toàn bộ bản lưu?"
+  },
+  "clearHelp": {
+    "en": "All saved text and files will be permanently deleted, including protected recalled messages. New captures will continue if enabled.",
+    "vi": "Nội dung và tệp trong kho sẽ bị xóa vĩnh viễn, kể cả tin thu hồi được bảo vệ. Extension vẫn tiếp tục lưu tin mới nếu đang bật."
+  },
+  "keepArchive": {
+    "en": "Keep archive",
+    "vi": "Giữ lại"
+  },
+  "clearConfirm": {
+    "en": "Delete archive",
+    "vi": "Xóa bản lưu"
+  },
+  "purgeTitle": {
+    "en": "Clean up saved files",
+    "vi": "Dọn tệp đã lưu"
+  },
+  "purgeHelp": {
+    "en": "Text and other file types stay. Cleaned files will not be downloaded again for the same message.",
+    "vi": "Giữ lại chữ và loại tệp còn lại. Tệp đã dọn sẽ không tự tải lại cho cùng mã tin."
+  },
+  "olderThan": {
+    "en": "Only files older than",
+    "vi": "Chỉ tệp cũ hơn"
+  },
+  "allFiles": {
+    "en": "0 = all files of the selected type",
+    "vi": "0 = tất cả tệp thuộc loại đã chọn"
+  },
+  "includeRecalled": {
+    "en": "Include files in recalled messages",
+    "vi": "Gồm cả tệp trong tin đã thu hồi"
+  },
+  "includeProtected": {
+    "en": "This includes protected messages.",
+    "vi": "Áp dụng cả với những tin được bảo vệ."
+  },
+  "cancel": {
+    "en": "Cancel",
+    "vi": "Hủy"
+  },
+  "purgeConfirm": {
+    "en": "Delete selected files",
+    "vi": "Dọn tệp đã chọn"
+  },
+  "popupFocus": {
+    "en": "Keep typing focus",
+    "vi": "Giữ ô đang soạn"
+  },
+  "popupFocusHelp": {
+    "en": "New popups won’t steal focus",
+    "vi": "Popup mới không lấy con trỏ"
+  },
+  "popupReloadHelp": {
+    "en": "Fewer interruptions on Facebook",
+    "vi": "Giảm gián đoạn khi dùng Facebook"
+  },
+  "popupCapture": {
+    "en": "Save recalled messages",
+    "vi": "Lưu tin thu hồi"
+  },
+  "popupCaptureHelp": {
+    "en": "Text, emoji, photos and voice notes",
+    "vi": "Văn bản, emoji, ảnh và voice"
+  },
+  "recalledCount": {
+    "en": "recalled messages",
+    "vi": "tin thu hồi"
+  },
+  "openSettings": {
+    "en": "Open settings",
+    "vi": "Mở cài đặt"
+  }
+}
