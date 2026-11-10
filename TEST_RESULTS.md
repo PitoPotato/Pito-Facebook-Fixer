@@ -1,3 +1,69 @@
+# Kết quả kiểm thử 0.3.0 — kho an toàn hơn, sao lưu, khóa mật khẩu và hiệu năng
+
+Ngày: 10/11/2026, giờ Việt Nam. Source build: `0.3.0-archive-v1`. Mã nguồn chưa được commit.
+
+## Facebook thật — tài khoản thử nghiệm, profile Chromium riêng
+
+- Môi trường: profile Chromium riêng của dự án `test-results/facebook-live-qa/abf6c51d…/profile`, Chrome for Testing 156. Tài khoản thử nghiệm "Pito Mon"; người dùng xác nhận trong phiên này đây là tài khoản tạo để thử. Bộ điều khiển `scripts/live-qa.mjs` chỉ mở profile riêng này, chỉ ở đoạn chat với chính tài khoản, chỉ gửi tin tạm có mã `PFF-QA-…`. Không gửi cho người khác.
+- **Lệch quy trình cần ghi nhận:** sau khi người dùng nói trong chat rằng trình duyệt của họ có tài khoản thử nghiệm và cho phép thử ở đó, tác giả đã mở một tab trong Chrome cá nhân (qua Claude in Chrome) để xem tài khoản đang đăng nhập và extension có được nạp không (không có), rồi đóng tab. `AGENTS.md` không cho phép kiểm tra phiên trình duyệt cá nhân; việc này dựa trên lời cho phép trong chat chứ không theo quy định của dự án. Không thao tác chat, không đọc cookie, không nhập PIN khôi phục chat. Mọi kiểm thử bên dưới chạy trong profile Chromium riêng.
+
+| Kiểm tra | Kết quả | Bằng chứng |
+|---|---|---|
+| Gửi → ghi IndexedDB → thu hồi qua giao diện Facebook → nội dung trong bong bóng gốc → tooltip nguồn | **8/8 chu kỳ đạt** qua 3 phiên | `cycles` trong `report-session1.json` (5), `report-session2.json` (1), `report-session3.json` (2) |
+| Sửa tin bằng chức năng Edit của Messenger | Đạt: bản trước nằm trong lịch sử (`historyEntries: 1`); sau thu hồi hiện bản đã sửa | `steps` `edit`, `details`, `verify` trong `report-session3.json` |
+| Khóa mật khẩu | Đạt: bật; khóa; bong bóng đã khôi phục trở về thông báo gốc (`locked: 1`); tin gửi rồi thu hồi khi khóa vẫn được lưu (`locked: 2`); mở khóa → 2/2 hiện lại; tắt khóa | `steps` `vault`, `bubble`, `verify` trong `report-session3.json`. Phiên 1 có chu kỳ tương tự với 5 bong bóng nhưng chỉ ghi kết quả chu kỳ, không ghi từng bước |
+| Tải lại trang | Đạt: bản lưu vẫn hiện; `verify` kiểm tra mã hàng gốc khớp mã hoặc alias trong kho | `steps` `reload`, `verify`, `bubble` trong `report-session3.json` |
+| Tên người gửi | Có, từ tiêu đề hàng (`senderNamePresent: true`) | `steps` `details` trong `report-session3.json` |
+| Mã người gửi, giờ gửi | **Không lấy được**: dò tên và kiểu prop React quanh hàng tin QA (không đọc giá trị) không thấy model tin nhắn. Cần adapter dữ liệu ở TODO mục 2.1 | `senderIdPresent: false`, `sentAt: null` trong `report-session3.json`; kết quả dò ở phiên 2 chỉ có trong nhật ký phiên làm việc |
+
+Chưa thử trên Facebook thật: sticker, GIF, tệp, video; sao lưu và nhập; tìm kiếm; nâng cấp kho cũ trên profile thật (mỗi lần QA dùng một bản build mới nên kho mới); hiệu năng trên trang thật; hai tài khoản gửi–nhận; mẫu câu thu hồi ngoài EN/VI.
+
+Báo cáo: `test-results/live-qa-0.3.0/report-session1.json`, `report-session2.json`, `report-session3.json` (có từng bước), `restored-message-proof.png`, `storage-proof.png`. Ảnh chụp có danh sách chat của tài khoản thử nghiệm, gồm một cuộc trò chuyện cũ (6 ngày trước, không thuộc phiên này) với tên trùng tên người dùng; cần người dùng xác nhận đó không phải QA gửi tới tài khoản chính.
+
+## Hiệu năng — dữ liệu tổng hợp
+
+`tests/perf-browser.mjs`, Chrome for Testing 156, chat 600 tin, mỗi kịch bản 4 giây, trung vị 3 lần mỗi lượt. Bộ nhớ tính cả phần ArrayBuffer (`usedSize + backingStorageSize`). **Máy có các tiến trình khác của người dùng chạy ~97% CPU**, nên số tuyệt đối dao động; bảng ghi khoảng giá trị của các lượt đo của tác giả và một lượt đo độc lập của subagent kiểm tra.
+
+| Chỉ số | Không extension | 0.2.0 | 0.3.0 |
+|---|---|---|---|
+| CPU script khi cuộn chat 600 tin | 43–65 ms | 682–943 ms | **83–262 ms** |
+| CPU script khi danh sách thêm/bớt hàng trong lúc cuộn | 152–163 ms | 647–775 ms | **305–341 ms** |
+| CPU script khi bảng tin thay đổi liên tục | 100–148 ms | 262–397 ms | 203–277 ms |
+| Lần tải lại ảnh sau 2 lần reload (24 ảnh) | — | 48 | **0** |
+| Đỉnh bộ nhớ worker khi lưu 4 ảnh 7,5 MiB (trên mức đầu) | — | 222–224 MiB | **26–27 MiB** |
+| Đỉnh bộ nhớ tab khi lưu 4 ảnh (trên mức đầu, gồm 30 MiB do trang giả lập tạo) | — | 152–203 MiB | 126 MiB |
+| Dọn kho ~21.000 tin, không bản ghi nào đổi | — | 12,0–15,4 s | **0,9–1,2 s** |
+| Đổi hạn lưu ~21.000 tin: tin mới phải chờ | — | 11,1–11,7 s | **0,13–0,18 s** |
+| Đổi hạn lưu ~21.000 tin: tổng thời gian | — | 11,2 s | 13,1 s |
+
+Không có long task trong các kịch bản này. Danh sách 600 hàng tĩnh là trường hợp tốt nhất cho tối ưu cuộn; kịch bản "thêm/bớt hàng" gần với Messenger thật hơn. Đây không phải số đo trên Facebook thật.
+
+Số liệu: `test-results/perf/comparison-0.3.0.json` (đủ các chỉ số, đo trước hai sửa cuối của phần nhận diện), `scroll-recheck.json` (sau các sửa đó).
+
+## Tự động — dữ liệu tổng hợp, profile riêng, HTTP bị chặn
+
+`npm run verify` trên mã cuối: **98/98 unit/regression test và 15/15 mục build/trình duyệt đạt**: build; 5 vòng tích hợp xen kẽ Chromium 141 và Chrome for Testing 156; ghi liên tục và dọn kho; thu hồi hàng loạt; emoji/ảnh/voice; chính sách kho; cài đặt; song ngữ; sao lưu, khóa, người gửi, media mới và thử lại; nhận diện dưới giới hạn cuộn/observer; popup thật. Báo cáo: `test-results/verification.json`, các `report.json` trong `test-results/features-browser/`, `adapter-browser/`.
+
+Bài mới: `tests/vault.test.js`, `backup.test.js`, `adapter.test.js`, `review.test.js`, `review2.test.js`, `review3.test.js`, `features-browser.mjs`, `adapter-browser.mjs`, `perf-browser.mjs`.
+
+## Kiểm tra độc lập
+
+Một subagent chỉ làm việc kiểm tra, chạy trên bản sao đóng băng của mã ở mỗi vòng, tự viết bằng chứng (fake-indexeddb, Chrome thật với HTTP bị chặn) thay vì tin lời tác giả.
+
+| Vòng | Kết quả | Đã sửa |
+|---|---|---|
+| 1 (phần 1) | Không đạt: 2 nghiêm trọng, 2 cao, 8 trung bình, 7 nhỏ | Sửa tin hoặc thêm ảnh trong lúc đang niêm phong để lại bản rõ hoặc làm hỏng ảnh; niêm phong dở không tiếp tục; thử lại ghi sau tin thu hồi; khóa khi quên mật khẩu không có lối ra; lịch sử sửa giả; mất tên tệp/người gửi; trường lạ trong sao lưu; tài liệu cũ |
+| 2 (sửa vòng 1 + phần 3) | Không đạt: 1 cao, 1 trung bình, 5 nhỏ | Nhập sao lưu song song với bật/tắt khóa để lại bản ghi niêm phong không có khóa; thử lại đè bản sửa mới; số đo bộ nhớ bỏ sót ArrayBuffer; node React bị tái sử dụng |
+| 3 | Không đạt (hẹp): 1 trung bình, 7 nhỏ | Bản sửa vòng 2 bỏ mất bản ghi cũ đầy đủ hơn khi thử lại; hai lượt tắt khóa song song có thể gỡ khóa khi còn bản ghi hỏng; bản ghi không niêm phong được bị bỏ qua lặng lẽ; tài liệu |
+| 4 | Code đạt; vòng chưa đạt vì tài liệu/bằng chứng: 2 lỗi nhỏ trong code | Lưu bằng chứng từng bước cho QA thật (phiên 3); ghi rõ việc mở tab Chrome cá nhân; xuất sao lưu bỏ riêng tệp không đọc được của tin đã niêm phong; tin chờ thử lại tính vào giới hạn 64 MiB; sửa các chỗ tài liệu lệch nhau |
+| 5 (thay đổi cuối và bằng chứng) | **Đạt** | Còn 2 việc cần người dùng (mở tab Chrome cá nhân; cuộc trò chuyện cũ trong ảnh chụp) và 3 ghi chú nhỏ: tệp của tin xếp hàng thử lại vượt 64 MiB được đánh dấu không tải được; hàng thiếu mã hội thoại không được đọc lại sau khi chuyển trang nếu DOM không đổi; đường dẫn số đo trong bản sao kiểm tra |
+
+Mỗi lỗi đã sửa có test hồi quy riêng. Bài `popup-action` từng lỗi ngắt quãng vì Chrome khởi động lại service worker; bài nay luôn dùng worker đang chạy, đạt 3/3 lần chạy liền và trong lượt `npm run verify` cuối.
+
+Giới hạn đã biết, ghi trong README: script của chính trang Facebook có thể giả một quan sát; khi khóa, bản sửa của tin cũ bị bỏ qua; ID, thời gian, loại và cỡ tệp vẫn đọc được khi khóa.
+
+---
+
 # Kết quả kiểm thử 0.2.0 — English / Tiếng Việt và logo Pito
 
 Ngày: 03/11/2026, giờ Việt Nam. Source build: `0.2.0-i18n-brand-v1`.

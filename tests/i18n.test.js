@@ -21,6 +21,17 @@ test('every static and dynamic message has matching English/Vietnamese placehold
 test('parameter interpolation and local error translation preserve technical details',()=>{
   assert.equal(tr('recallDetected','en',{date:'Jan 1'}),'Recall detected · Jan 1');
   assert.equal(tr('previousImage','vi'),'Ảnh trước');assert.equal(localeFor('vi'),'vi-VN');assert.equal(localeFor('en'),'en-US');
-  assert.equal(localizeError('Kho đang bận; thử lại sau.','en'),'The archive is busy. Please try again.');
-  assert.match(localizeError('Không xác thực được nguồn gửi (document_url).','en'),/document_url/);
+  assert.equal(localizeError('errBusy','en'),'The archive is busy. Please try again.');assert.equal(localizeError('errBusy','vi'),'Kho đang bận; thử lại sau.');
+  assert.match(localizeError('errSource:document_url','en'),/could not be verified.*document_url/);assert.match(localizeError('errSource:document_url','vi'),/Không xác thực.*document_url/);
+  assert.equal(localizeError('Some browser error','vi'),'Some browser error');
+});
+test('every error code raised in the source has a translation in both languages',async()=>{
+  const {readdir}=await import('node:fs/promises');
+  const catalog=JSON.parse(await readFile('src/locales/messages.json','utf8'));
+  for(const file of await readdir('src')){
+    if(!file.endsWith('.js'))continue;
+    const code=await readFile(`src/${file}`,'utf8');
+    assert.equal(/Error\(['"`][^'"`]*[À-ỹ]/u.test(code),false,`${file} raises a hardcoded Vietnamese error`);
+    for(const [,key] of code.matchAll(/['"`](err[A-Z]\w+)['"`]/g))assert.ok(catalog[key]?.en&&catalog[key]?.vi,`${file}: ${key} has no translation`);
+  }
 });

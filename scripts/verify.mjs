@@ -20,7 +20,7 @@ async function run(label, file, env={}) {
   if(code!==0)throw Error(`${label} failed (${code})`);
 }
 // Node's test runner must receive --test as an actual argument, not a shell glob.
-const unit=spawn(process.execPath,["--test","tests/archive.test.js","tests/background.test.js","tests/protocol.test.js","tests/sender.test.js","tests/media.test.js","tests/i18n.test.js"],{stdio:"inherit"});
+const unit=spawn(process.execPath,["--test","tests/archive.test.js","tests/background.test.js","tests/protocol.test.js","tests/sender.test.js","tests/media.test.js","tests/i18n.test.js","tests/vault.test.js","tests/backup.test.js","tests/adapter.test.js","tests/review.test.js","tests/review2.test.js","tests/review3.test.js"],{stdio:"inherit"});
 const unitCode=await new Promise((resolve,reject)=>{unit.on("exit",resolve);unit.on("error",reject);});
 if(unitCode!==0)throw Error("Unit/regression tests failed");
 await run("Build extension", "scripts/build.mjs");
@@ -35,5 +35,7 @@ await run("Emoji, photo and voice persistence, playback and cleanup", "tests/med
 await run("Storage policy, selective cleanup, gallery and unplayed voice", "tests/storage-browser.mjs", existsSync(current)?{PFF_TEST_BROWSER:current}:{});
 await run("Preferences persistence, concurrent views, startup and new UI", "tests/settings-browser.mjs", existsSync(current)?{PFF_TEST_BROWSER:current}:{});
 await run("Bilingual UI, persisted language and Pito branding", "tests/i18n-browser.mjs", existsSync(current)?{PFF_TEST_BROWSER:current}:{});
+await run("Backups, password lock, sender details, new media kinds and retries", "tests/features-browser.mjs", existsSync(current)?{PFF_TEST_BROWSER:current}:{});
+await run("Capture stays complete under scroll and observer limits", "tests/adapter-browser.mjs", existsSync(current)?{PFF_TEST_BROWSER:current}:{});
 await run("Actual toolbar popup sizing and autosave", "tests/popup-action.mjs", existsSync(current)?{PFF_TEST_BROWSER:current}:{});
 console.log("\n[VERIFY] All automated checks passed. Production Facebook QA remains a separate requirement.");

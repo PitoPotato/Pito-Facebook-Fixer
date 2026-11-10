@@ -1,7 +1,7 @@
 import "fake-indexeddb/auto";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { Archive, pack, unpack } from "../src/archive.js";
+import { Archive, MAX_EDIT_HISTORY, pack, unpack } from "../src/archive.js";
 import { DEFAULTS, DAY } from "../src/shared.js";
 
 const create = () => new Archive(`test-${crypto.randomUUID()}`);
@@ -78,11 +78,91 @@ test("revisiting does not extend retention, and expired text is never restored",
   assert.deepEqual(await db.ingest([remove()], config, now + DAY + 1), []);
   assert.equal((await db.stats()).count, 0);
 });
-test("edits replace text without accumulating old versions", async () => {
-  const db = create(); await db.ingest([message()], DEFAULTS);
-  await db.ingest([message("mid.1", { text: "Đã sửa" })], DEFAULTS);
-  assert.equal((await db.ingest([remove()], DEFAULTS))[0].text, "Đã sửa");
-  assert.equal((await db.stats()).count, 1);
+test("edits show the newest text and keep a bounded history counted in the budget", async () => {
+  const db = create(), now = Date.now(); await db.ingest([message()], DEFAULTS, now);
+  const bytes = (await db.stats()).bytes;
+  await db.ingest([message("mid.1", { text: "Đã sửa" })], DEFAULTS, now + 1);
+  assert.equal((await db.stats()).count, 1); assert.ok((await db.stats()).bytes > bytes, "the older version counts toward the budget");
+  await db.ingest([message("mid.1", { text: "Đã sửa" })], DEFAULTS, now + 2);
+  for (let edit = 0; edit < MAX_EDIT_HISTORY + 3; edit++) await db.ingest([message("mid.1", { text: `Lần sửa ${edit}` })], DEFAULTS, now + 10 + edit);
+  const [row] = (await db.list({ state: "all" })).rows;
+  assert.equal(row.text, `Lần sửa ${MAX_EDIT_HISTORY + 2}`); assert.equal(row.history.length, MAX_EDIT_HISTORY);
+  assert.equal(row.history.at(-1).text, `Lần sửa ${MAX_EDIT_HISTORY + 1}`); assert.ok(row.editedAt);
+  const restored = (await db.ingest([remove()], DEFAULTS, now + 100))[0]; assert.equal(restored.text, `Lần sửa ${MAX_EDIT_HISTORY + 2}`);
+  assert.equal((await db.listRemoved())[0].history.length, MAX_EDIT_HISTORY, "history survives a recall");
+});
+test("a rerender without its caption never replaces text that was saved", async () => {
+  const db = create(), png = Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10, ...Array(40).fill(1)]), now = Date.now();
+  await db.ingest([message("mid.1", { text: "Chú thích", assets: [{ kind: "image", data: png, mime: "image/png", position: 0 }] })], DEFAULTS, now);
+  await db.ingest([message("mid.1", { text: "", assets: [{ kind: "image", data: png, mime: "image/png", position: 0 }] })], DEFAULTS, now + 1);
+  const [row] = (await db.list({ state: "all" })).rows; assert.equal(row.text, "Chú thích"); assert.deepEqual(row.history, []);
+});
+test("sender, sent time and reply are saved, filled in later and never erased", async () => {
+  const db = create(), now = Date.now();
+  await db.ingest([message("mid.1", { senderName: "An" })], DEFAULTS, now);
+  const bytes = (await db.stats()).bytes;
+  await db.ingest([message("mid.1", { senderId: "777", sentAt: 1800000000000, replyText: "Câu gốc", label: "At 01:00, An" })], DEFAULTS, now + 1);
+  assert.ok((await db.stats()).bytes > bytes);
+  await db.ingest([message("mid.1", { senderName: undefined, senderId: undefined, sentAt: undefined })], DEFAULTS, now + 2);
+  const [row] = (await db.list({ state: "all" })).rows;
+  assert.equal(row.senderName, "An"); assert.equal(row.senderId, "777"); assert.equal(row.sentAt, 1800000000000); assert.equal(row.replyText, "Câu gốc");
+});
+test("when the archive is full, ordinary messages are evicted before older recalled ones", async () => {
+  const db = create(), now = Date.now(), config = { ...DEFAULTS, maxMessages: 100, retentionDays: 0 };
+  await db.ingest([message("mid.recalled")], config, now);
+  await db.ingest([remove("mid.recalled")], config, now + 1);
+  for (let batch = 0; batch < 3; batch++) await db.ingest(Array.from({ length: 50 }, (_, i) => message(`mid.${batch}.${i}`)), config, now + 10 + batch);
+  const stats = await db.stats(); assert.ok(stats.evicted > 0); assert.ok(stats.count <= 100);
+  assert.equal(stats.removed, 1); assert.equal((await db.listRemoved())[0].id, "mid.recalled");
+});
+test("recalled messages are evicted only after no ordinary message remains, when cleanup allows it", async () => {
+  const db = create(), now = Date.now(), config = { ...DEFAULTS, maxMessages: 100, retentionDays: 0 };
+  const items = Array.from({ length: 60 }, (_, i) => message(`mid.r.${String(i).padStart(2, "0")}`));
+  await db.ingest(items, config, now); await db.ingest(items.map(item => ({ ...item, removed: true, text: undefined })), config, now + 1);
+  await db.ingest(Array.from({ length: 50 }, (_, i) => message(`mid.n.${i}`)), config, now + 2);
+  const tight = { ...config, maxMessages: 40 };
+  await db.maintain(tight, now + 3, true);
+  const stats = await db.stats(); assert.ok(stats.count <= 40); assert.equal(stats.count, stats.removed, "only recalled messages remain");
+});
+test("retention of a recalled message runs from its recall, including for records saved before this version", async () => {
+  const db = create(), now = Date.now(), config = { ...DEFAULTS, retentionDays: 30 };
+  await db.ingest([message()], config, now - 29 * DAY);
+  await db.ingest([remove()], config, now);
+  await db.maintain(config, now + 10 * DAY, true);
+  assert.equal((await db.listRemoved().then(rows => rows[0].text)), "Xin chào bạn");
+  await db.maintain(config, now + 30 * DAY, true);
+  assert.equal((await db.stats()).count, 0);
+});
+test("list filters by state and pages through every message", async () => {
+  const db = create(), now = Date.now(), items = Array.from({ length: 64 }, (_, i) => message(`mid.${String(i).padStart(3, "0")}`));
+  await db.ingest(items, DEFAULTS, now); await db.ingest(items.slice(0, 5).map(item => ({ ...item, removed: true, text: undefined })), DEFAULTS, now + 1);
+  await db.ingest([{ ...message("mid.063"), removed: true, vanished: true, text: undefined }], DEFAULTS, now + 2);
+  assert.equal((await db.list({ state: "removed" })).rows.length, 5); assert.equal((await db.list({ state: "vanished" })).rows.length, 1);
+  assert.equal((await db.list({ state: "vanished" })).rows[0].removal, "vanished");
+  let cursor = null, ids = [];
+  do { const page = await db.list({ state: "normal", before: cursor }); ids.push(...page.rows.map(row => row.id)); cursor = page.next; } while (cursor);
+  assert.equal(ids.length, 58); assert.equal(new Set(ids).size, 58);
+  assert.equal((await db.list({ state: "all" })).rows.length, 30);
+  await assert.rejects(() => db.list({ state: "secret" }), /errInvalidRequest/);
+});
+test("search covers messages beyond the first page, including old edits and sender names", async () => {
+  const db = create(), now = Date.now();
+  await db.ingest([message("mid.needle", { text: "Bản đầu có từ KHÓA", senderName: "Nguyễn An" })], DEFAULTS, now);
+  await db.ingest([message("mid.needle", { text: "Bản sau" })], DEFAULTS, now + 1);
+  await db.ingest(Array.from({ length: 64 }, (_, i) => message(`mid.fill.${i}`, { text: "Không liên quan" })), DEFAULTS, now + 2);
+  for (const query of ["từ khóa", "nguyễn an", "bản sau"]) {
+    const result = await db.list({ state: "all", query }); assert.deepEqual(result.rows.map(row => row.id), ["mid.needle"], query); assert.equal(result.next, null);
+  }
+  assert.deepEqual((await db.list({ state: "all", query: "không tồn tại" })).rows, []);
+});
+test("a long search stops at its scan budget and can be continued", async () => {
+  const db = create(), now = Date.now(), total = 4100;
+  for (let batch = 0; batch * 64 < total; batch++) await db.ingest(Array.from({ length: 64 }, (_, i) => message(`mid.${batch}.${i}`, { text: "Đệm" })), { ...DEFAULTS, maxMessages: 100000 }, now + batch);
+  await db.ingest([message("mid.oldest", { text: "Kim trong đống rơm" })], { ...DEFAULTS, maxMessages: 100000 }, now - 1000);
+  const first = await db.list({ state: "all", query: "kim trong" });
+  assert.deepEqual(first.rows, []); assert.equal(first.scanned, 4000); assert.ok(first.next);
+  const second = await db.list({ state: "all", query: "kim trong", before: first.next });
+  assert.deepEqual(second.rows.map(row => row.id), ["mid.oldest"]); assert.equal(second.next, null);
 });
 test("sustained writes stay under byte and count budgets; newer messages survive", async () => {
   const db = create(), config = { ...DEFAULTS, maxBytes: 24000, maxMessages: 25 }, now = Date.now();
@@ -149,4 +229,21 @@ test('zero retention has no age expiry but continues to obey byte and count budg
   assert.equal((await db.ingest([remove()],config,now))[0].text,'Xin chào bạn');
   await db.ingest([message('mid.2'),message('mid.3')],config,now);
   assert.ok((await db.stats()).count<=2);
+});
+
+test("cleanup works in bounded slices and rewrites only records that changed", async () => {
+  const db = create(), now = Date.now();
+  for (let batch = 0; batch < 5; batch++) await db.ingest(Array.from({ length: 64 }, (_, i) => message(`mid.${batch}.${i}`)), DEFAULTS, now);
+  const first = await db.maintainSlice(DEFAULTS, now);
+  assert.equal(first.processed, 256); assert.equal(first.written, 0, "nothing changed, so nothing is rewritten"); assert.ok(first.next);
+  const second = await db.maintainSlice(DEFAULTS, now, first.next);
+  assert.equal(second.processed, 64); assert.equal(second.next, null);
+  const changed = await db.maintainSlice({ ...DEFAULTS, retentionDays: 10 }, now);
+  assert.equal(changed.written, 256);
+  let scheduled = 0;
+  await db.maintain({ ...DEFAULTS, retentionDays: 11 }, now, true, work => { scheduled++; return work(); });
+  assert.ok(scheduled >= 3, "each slice and the final prune go through the caller's queue");
+  const before = await db.stats();
+  await db.maintain({ ...DEFAULTS, retentionDays: 11 }, now, true);
+  assert.equal((await db.stats()).bytes, before.bytes, "an idle cleanup does not change accounting");
 });

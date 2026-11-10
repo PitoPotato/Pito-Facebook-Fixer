@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Archive} from '../src/archive.js';
 import {DEFAULTS,DAY} from '../src/shared.js';
-import {allowedMediaURL,detectedMime,encodeBase64,decodeBase64,emojiOnly,readMedia,MAX_ASSET_BYTES} from '../src/media.js';
+import {allowedMediaURL,detectedMime,encodeBase64,decodeBase64,emojiOnly,readMedia,readBlobMedia,assetLimit,cleanFileName,MAX_ASSET_BYTES,MAX_VIDEO_BYTES} from '../src/media.js';
 
 const png=Uint8Array.from([137,80,78,71,13,10,26,10,...Array(40).fill(0)]);
 const wav=Uint8Array.from([...new TextEncoder().encode('RIFF'),0,0,0,0,...new TextEncoder().encode('WAVE'),...Array(48).fill(0)]);
@@ -86,7 +86,52 @@ test('per-type cleanup preserves text/other media, protects recalled files and p
   record=(await db.ingest([removed('mid.protected')],config,now))[0];assert.equal(record.text,'Caption');assert.deepEqual(record.assets.map(a=>a.kind),['voice']);
   await db.maintain({...config,voiceRetentionDays:1},now,true);assert.equal((await db.ingest([removed('mid.protected')],config,now))[0].assets.length,1);
   await db.maintain({...config,cleanupRemoved:true,voiceRetentionDays:1},now,true);
-  record=(await db.ingest([removed('mid.normal')],config,now))[0];assert.equal(record.assets.length,0);assert.match(record.text,/dọn/);
+  record=(await db.ingest([removed('mid.normal')],config,now))[0];assert.equal(record.assets.length,0);assert.equal(record.mediaPurged,true);assert.equal(record.text,'');
+});
+test('video, file and subtype detection follows file content; a file is never served as an active type',()=>{
+  const mp4=Uint8Array.from([0,0,0,32,...new TextEncoder().encode('ftypisom'),...Array(40).fill(0)]),webm=Uint8Array.from([26,69,223,163,...Array(40).fill(0)]);
+  assert.equal(detectedMime(mp4,null,'video'),'video/mp4');assert.equal(detectedMime(webm,null,'video'),'video/webm');
+  assert.equal(detectedMime(png,null,'video'),null);assert.equal(detectedMime(mp4,null,'image'),null);
+  assert.equal(detectedMime(new TextEncoder().encode('<html><script>alert(1)</script>'),'text/html','file'),'application/octet-stream');
+  assert.equal(detectedMime(new Uint8Array(),null,'file'),null);assert.equal(detectedMime(png,null,'unknown'),null);
+  assert.equal(cleanFileName('../../evil\\name<>.pdf'),'_.._evil_name_.pdf');assert.equal(cleanFileName('...'),undefined);assert.equal(cleanFileName(4),undefined);
+});
+test('per-kind size limits: videos follow their setting, other files stay at 8 MiB, GIF videos count as GIFs',async()=>{
+  assert.equal(assetLimit('image',DEFAULTS),MAX_ASSET_BYTES);assert.equal(assetLimit('file',DEFAULTS),MAX_ASSET_BYTES);
+  assert.equal(assetLimit('video',{maxVideoMiB:12}),12*1024*1024);assert.equal(assetLimit('video',{maxVideoMiB:900}),MAX_VIDEO_BYTES);assert.equal(assetLimit('video',{maxVideoMiB:12},'gif'),MAX_ASSET_BYTES);
+  const mp4=new Uint8Array(9*1024*1024);mp4.set([0,0,0,32,...new TextEncoder().encode('ftypisom')]);
+  const db=create(),video=message('mid.video',[{kind:'video',data:mp4,position:0}]);
+  await db.ingest([video],{...DEFAULTS,maxBytes:64*1024*1024,maxVideoMiB:8});assert.equal((await db.stats()).count,0,'over the configured video limit');
+  await db.ingest([video],{...DEFAULTS,maxBytes:64*1024*1024,maxVideoMiB:16});
+  const [record]=await db.ingest([removed('mid.video')],{...DEFAULTS,maxBytes:64*1024*1024});assert.equal(record.assets[0].kind,'video');assert.equal(record.assets[0].mime,'video/mp4');assert.equal(record.assets[0].size,mp4.length);
+});
+test('stickers, GIFs and named files keep their type; only files keep a name and a smaller preview never replaces a larger copy',async()=>{
+  const db=create(),gif=Uint8Array.from([...new TextEncoder().encode('GIF89a'),...Array(60).fill(3)]);
+  await db.ingest([message('mid.kinds',[{kind:'image',subtype:'sticker',data:png,position:0,name:'ignored'},{kind:'image',subtype:'gif',data:gif,position:1},{kind:'file',data:wav,position:0,name:'../bao cao.bin'}])],DEFAULTS);
+  const bigger=Uint8Array.from([...png,...Array(100).fill(9)]);
+  await db.ingest([message('mid.kinds',[{kind:'image',subtype:'sticker',data:bigger,position:0}])],DEFAULTS);
+  await db.ingest([message('mid.kinds',[{kind:'image',subtype:'sticker',data:png,position:0}])],DEFAULTS);
+  const [record]=await db.ingest([removed('mid.kinds')],DEFAULTS),sticker=record.assets.find(a=>a.subtype==='sticker'),animated=record.assets.find(a=>a.subtype==='gif'),file=record.assets.find(a=>a.kind==='file');
+  assert.equal(sticker.subtype,'sticker');assert.equal(sticker.size,bigger.length);assert.equal(sticker.name,undefined);assert.equal(animated.subtype,'gif');assert.equal(file.mime,'application/octet-stream');assert.equal(file.name,'.._bao cao.bin'.replace(/^\.+/,''));
+});
+test('a video or file can be cleaned on its own, and the policy prevents downloading it again',async()=>{
+  const db=create(),now=Date.now(),mp4=Uint8Array.from([0,0,0,32,...new TextEncoder().encode('ftypisom'),...Array(40).fill(0)]);
+  await db.ingest([message('mid.clean',[{kind:'video',data:mp4,position:0},{kind:'file',data:wav,position:0,name:'a.bin'},{kind:'image',data:png,position:0}])],DEFAULTS,now);
+  assert.equal((await db.purgeMedia('video',0,false,DEFAULTS,now)).files,1);assert.equal((await db.purgeMedia('file',0,false,DEFAULTS,now)).files,1);
+  const policy=await db.capturePolicy(message('mid.clean'),DEFAULTS);assert.ok(policy.skipKinds.includes('video'));assert.ok(policy.skipKinds.includes('file'));
+  await assert.rejects(()=>db.purgeMedia('script',0,false,DEFAULTS,now));
+  await db.maintain({...DEFAULTS,fileRetentionDays:1},now+2*DAY,true);
+});
+test('reading a Blob response validates by content and limit without decoding the file',async()=>{
+  const loaded=await readBlobMedia(new Response(new Blob([png])),'image');assert.equal(loaded.mime,'image/png');assert.equal(loaded.blob.size,png.length);
+  await assert.rejects(()=>readBlobMedia(new Response(new Blob([png])),'image',10));
+  await assert.rejects(()=>readBlobMedia(new Response(new Blob(['nope nope nope'])),'image'));
+  await assert.rejects(()=>readBlobMedia(new Response(new Blob([])),'image'));
+});
+test('assets of an ordinary message are readable only from the extension pages',async()=>{
+  const db=create();await db.ingest([message('mid.plain',[{kind:'image',data:png,position:0}])],DEFAULTS);
+  await assert.rejects(()=>db.assetChunk({account:'10001',thread:'by-message-id',id:'mid.plain',index:0}));
+  const chunk=await db.assetChunk({account:'10001',thread:'by-message-id',id:'mid.plain',index:0},{any:true});assert.deepEqual(decodeBase64(chunk.data),png);
 });
 
 test('incremental album observations merge by position without duplicate bytes or losing earlier photos',async()=>{

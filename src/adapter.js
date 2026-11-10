@@ -41,16 +41,36 @@ function modelFromReact(row) {
   }
   return { message, thread };
 }
+const timestampOf = value => {
+  const out = Number(scalar(value));
+  return Number.isSafeInteger(out) && out >= 1e12 && out <= 4e12 ? out : undefined;
+};
 function pickMessage(value) {
   const text = typeof value.text === "string" ? value.text :
     typeof value.body === "string" ? value.body : typeof value.text?.text === "string" ? value.text.text : null;
+  const reply = value.replySnippet ?? value.reply_snippet;
   return { text, removed: value.isUnsent === true || value.is_unsent === true || value.isUnsentMessage === true ||
-    value.message_unsendability_status === "deny_tombstone_message" };
+    value.message_unsendability_status === "deny_tombstone_message",
+    senderId: scalar(value.senderId ?? value.sender_id ?? value.senderID ?? value.authorId ?? value.author_id) || undefined,
+    sentAt: timestampOf(value.timestampMs ?? value.timestamp_ms ?? value.timestamp),
+    replyText: typeof reply === "string" ? reply : undefined };
 }
+// English and Vietnamese wordings were checked on Facebook. The others follow
+// published translations and are UNVERIFIED until tested on a live account; they
+// are kept to the specific "unsent" phrasing so ordinary sentences don't match.
+const TOMBSTONES = [
+  /^(?:you|.+?) (?:unsent|removed|deleted) a message\.?$/i,
+  /^(?:bạn|.+?) đã (?:thu hồi|xóa|xoá) (?:một )?tin nhắn\.?$/i,
+  /^(?:anulaste|.+? anuló) el envío de un mensaje\.?$/i,
+  /^(?:vous avez|.+? a) retiré un message\.?$/i,
+  /^(?:du hast|.+? hat) eine nachricht (?:zurückgerufen|zurückgezogen)\.?$/i,
+  /^(?:hai|.+? ha) annullato l['’]invio di un messaggio\.?$/i,
+  /^(?:você|.+?) cancelou o envio de uma mensagem\.?$/i,
+  /^(?:anda|.+?) membatalkan pengiriman pesan\.?$/i,
+];
 export function tombstone(text) {
   const normalized = text.replace(/\s+/g, " ").trim();
-  return /^(?:you|.+?) (?:unsent|removed|deleted) a message\.?$/i.test(normalized) ||
-    /^(?:bạn|.+?) đã (?:thu hồi|xóa|xoá) (?:một )?tin nhắn\.?$/i.test(normalized);
+  return TOMBSTONES.some(pattern => pattern.test(normalized));
 }
 export function nativeMessageId(row) {
   return canonicalMessageId(row.getAttribute("data-message-id") || row.getAttribute("data-mid") || row.id);
@@ -73,7 +93,7 @@ function messageLeaves(row) {
     !node.querySelector('[dir="auto"]') &&
     !node.closest('[role="button"],button,a,[contenteditable="true"],blockquote,[role="heading"],h1,h2,h3,h4,h5,h6,[data-pff-host],[data-pff-restored]'));
 }
-export function describeRow(row, skipped = () => {}) {
+export function describeRow(row, skipped = () => {}, options = {}) {
   if (!row.isConnected || row.closest('[data-pff-host]')) return null;
   const fail = reason => { skipped(reason); return null; };
   const account = accountId(); if (!account) return fail("missingAccount");
@@ -113,38 +133,87 @@ export function describeRow(row, skipped = () => {}) {
   const labelledText = labelledTexts.length === 1 ? labelledTexts[0] : undefined;
   let text = restored ? undefined : message?.text || explicitText || labelledText;
   const leafText = leaves.length === 1 ? textWithEmoji(leaves[0]) : null;
-  const rowText = leaves.map(node => node.textContent || "").find(tombstone) || leafText || row.innerText || row.textContent || "";
+  // textContent, not innerText: reading innerText forces a layout on every row.
+  const rowText = () => leaves.map(node => node.textContent || "").find(tombstone) || leafText || row.textContent || "";
   // Known message content wins over tombstone wording: a person can literally
   // send "You unsent a message" as an ordinary message.
   const hasKnownContent = typeof text === "string" && text.length > 0;
-  const removed = !!restored || message?.removed || row.getAttribute("data-is-unsent") === "true" || (!hasKnownContent && tombstone(rowText));
+  const removed = !!restored || message?.removed || row.getAttribute("data-is-unsent") === "true" || (!hasKnownContent && tombstone(rowText()));
   if (!removed && text == null) {
     // Conservative DOM fallback: a single text bubble, no quote/reply ambiguity.
     if (leaves.length === 1) text = leafText;
   }
-  const media=removed?[]:collectMedia(row);
+  const media=removed?[]:collectMedia(row,options);
   if((media.length||(!message?.text&&!explicitText&&!labelledText))&&/^(?:sent|delivered|seen|đã gửi|đã nhận|đã xem|\d{1,2}:\d{2})$/i.test(text||''))text='';
   if(!removed&&voiceRow(row))text=''; // Never archive a timer or delivery state as the voice body.
   const waitingVoice=!removed&&voiceRow(row)&&!media.length;
   if (!removed && (typeof text !== "string" || !text.trim())&&!media.length&&!waitingVoice) return fail("missingText");
   const payload = typeof text === "string" ? normalized(text) : "";
   const identityStamp = payload && accessibleLabel.endsWith(`: ${payload}`) ? accessibleLabel.slice(0, -payload.length - 2) : accessibleLabel;
+  const details = removed ? {} : {
+    senderId: message?.senderId, sentAt: message?.sentAt, label: identityStamp || undefined,
+    senderName: normalized(row.querySelector('h1,h2,h3,h4,h5,h6,[role="heading"]')?.textContent || '').slice(0, 120) || undefined,
+    replyText: message?.replyText || normalized(row.querySelector('blockquote')?.textContent || '').slice(0, 500) || undefined,
+  };
   return { account, thread, id, nativeId, identityStamp, removed: !!removed, text: removed ? undefined : (text||'').slice(0, MAX_TEXT),
-    media,waitingVoice,kind:!media.length&&emojiOnly(text)?'emoji':undefined,truncated: !removed && (text||'').length > MAX_TEXT };
+    media,waitingVoice,kind:!media.length&&emojiOnly(text)?'emoji':undefined,truncated: !removed && (text||'').length > MAX_TEXT, ...details };
 }
 
+const SCROLL_QUIET_MS = 120, SCROLL_MAX_WAIT_MS = 400, MAX_SCOPES = 64, SCOPE_PRUNE_MS = 30000;
+const SCOPE_SELECTOR = '[data-thread-id],[data-thread-key],[role="log"],[role="dialog"],[role="grid"]';
+const DETAIL_OPTIONS = { subtree: true, characterData: true, attributes: true, attributeFilter: ["src", "srcset", "alt"] };
+// The identity attributes of a row. If these and its DOM are unchanged, reading
+// the row again cannot give a different answer.
+const rowKey = row => [row.getAttribute("data-message-id"), row.getAttribute("data-mid"), row.id, row.getAttribute("aria-label"), row.getAttribute("data-is-unsent")].join("\u0000");
+// React gives a host element a new props object whenever it renders it again,
+// including when a virtualized list reuses the node for another message.
+// The key carries a per-page random suffix; find it once, then read it directly.
+let knownFiberKey = null;
+const fiberKey = row => {
+  if (knownFiberKey && knownFiberKey in row) return knownFiberKey;
+  const key = Object.keys(row).find(name => name.startsWith("__reactFiber$") || name.startsWith("__reactInternalInstance$"));
+  if (key) knownFiberKey = key;
+  return key || null;
+};
+// React DOM refreshes __reactProps$ on every commit, while the fiber pointer of a
+// node can lag one commit behind (double buffering), so prefer the props key.
+let knownPropsKey = null;
+const rowProps = row => {
+  if (!knownPropsKey || !(knownPropsKey in row)) {
+    const key = Object.keys(row).find(name => name.startsWith("__reactProps$"));
+    if (key) knownPropsKey = key;
+    else { const fiber = fiberKey(row); return fiber ? row[fiber]?.memoizedProps ?? null : null; }
+  }
+  return row[knownPropsKey] ?? null;
+};
+
 export function installMessageAdapter(config, emit, count) {
-  const pending = new Set(); let timer = null, serial = 0, seen = new WeakMap(), anchors = new WeakMap(),
-    snapshots = new WeakMap(), replacements = new WeakMap(), scrollEpoch = 0, sweep = null, repeatSweep = false;
+  const pending = new Set(), scopes = new Set(), scrollTargets = new Set();
+  let timer = null, serial = 0, seen = new WeakMap(), failed = new WeakMap(), dirty = new WeakSet(), anchors = new WeakMap(),
+    snapshots = new WeakMap(), replacements = new WeakMap(), scrollEpoch = 0, sweep = null, repeatSweep = false,
+    scrollTimer = null, scrollDeadline = 0, scrollOverflow = false, wideDetail = false, lastScopePrune = 0;
   const rowWalker = root => document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, {
     acceptNode:node => node.matches(ROW_SELECTOR) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP,
   });
+  const markDirty = row => { for (let node = row; node; node = node.parentElement?.closest(ROW_SELECTOR)) dirty.add(node); };
   function requestSweep() {
     if (!sweep) sweep = rowWalker(document); else repeatSweep = true;
   }
+  function flushScroll() {
+    scrollTimer = null;
+    const targets = [...scrollTargets], everything = scrollOverflow; scrollTargets.clear(); scrollOverflow = false;
+    if (!config().archive) return;
+    if (everything) scan(document, true);
+    else for (const target of targets) if (target.isConnected) scan(target, true);
+  }
   document.addEventListener("scroll", event => {
+    // The epoch must move immediately: it guards row recycling during a scroll.
     scrollEpoch++;
-    if (config().archive && event.target instanceof Element) scan(event.target);
+    if (!config().archive || !(event.target instanceof Element)) return;
+    if (scrollTargets.size < 8) scrollTargets.add(event.target); else scrollOverflow = true;
+    const now = performance.now();
+    if (scrollTimer === null) scrollDeadline = now + SCROLL_MAX_WAIT_MS; else clearTimeout(scrollTimer);
+    scrollTimer = setTimeout(flushScroll, Math.max(0, Math.min(SCROLL_QUIET_MS, scrollDeadline - now)));
   }, { capture: true, passive: true });
   const queue = row => {
     const accepted = pending.has(row) || pending.size < 256;
@@ -152,6 +221,39 @@ export function installMessageAdapter(config, emit, count) {
     if (!timer) timer = setTimeout(process, 120);
     return accepted;
   };
+  // A scroll only needs to re-read a row whose DOM or identity changed. An
+  // unchanged row just renews the epoch that keeps its recall matchable.
+  function queueScrolled(row) {
+    const key = rowKey(row), known = seen.get(row);
+    if (!dirty.has(row)) {
+      if (known && known.key === key && known.props === rowProps(row) && !known.waitingVoice) {
+        const snapshot = snapshots.get(row);
+        if (snapshot) { snapshot.scrollEpoch = scrollEpoch; anchors.set(row.closest('[role="article"]') || row, snapshot); }
+        return true;
+      }
+      if (failed.get(row) === key) return true;
+    }
+    return queue(row);
+  }
+  function watchEverywhere() {
+    handle(detail.takeRecords()); detail.disconnect(); scopes.clear(); wideDetail = true;
+    detail.observe(document.documentElement, DETAIL_OPTIONS);
+  }
+  function pruneScopes() {
+    lastScopePrune = performance.now();
+    if ([...scopes].every(scope => scope.isConnected)) return;
+    handle(detail.takeRecords()); detail.disconnect();
+    for (const scope of [...scopes]) if (scope.isConnected) detail.observe(scope, DETAIL_OPTIONS); else scopes.delete(scope);
+  }
+  // Text and image changes are noisy across a Facebook page, so they are only
+  // watched around rows that exist. Structure is still watched everywhere.
+  function watchScope(row) {
+    if (wideDetail) return;
+    const scope = row.closest(SCOPE_SELECTOR) || row.parentElement || row;
+    if (scopes.has(scope)) return;
+    if (scopes.size >= MAX_SCOPES) { pruneScopes(); if (scopes.size >= MAX_SCOPES) { watchEverywhere(); return; } }
+    scopes.add(scope); detail.observe(scope, DETAIL_OPTIONS);
+  }
   function process() {
     timer = null;
     if (!config().archive) { pending.clear(); return; }
@@ -159,9 +261,12 @@ export function installMessageAdapter(config, emit, count) {
     for (let index = 0; index < rows.length; index++) {
       const row = rows[index];
       if (!row.isConnected) continue;
+      watchScope(row);
+      dirty.delete(row);
       let item;
-      try { item = describeRow(row, count); } catch { count("adapterErrors"); continue; }
-      if (!item) { count("unidentifiedRows"); continue; }
+      try { item = describeRow(row, count, config()); } catch { count("adapterErrors"); continue; }
+      if (!item) { failed.set(row, rowKey(row)); count("unidentifiedRows"); continue; }
+      failed.delete(row);
       const anchor = row.closest('[role="article"]') || row;
       const replacement = replacements.get(row);
       const prior = replacement?.expiresAt > Date.now() ? replacement : anchors.get(anchor);
@@ -176,9 +281,9 @@ export function installMessageAdapter(config, emit, count) {
         const snapshot={ row, id: item.id, account: item.account, thread: item.thread, identityStamp: item.identityStamp, scrollEpoch };
         anchors.set(anchor,snapshot);snapshots.set(row,snapshot);
       }
-      const fingerprint = JSON.stringify([item.account, item.thread, item.id, item.removed, item.text, item.tombstoneId,item.media.map(m=>[m.kind,m.sourceId,m.position]),item.kind]);
-      const previous = seen.get(row);
-      if (previous?.fingerprint === fingerprint) { if(item.waitingVoice)requestVoicePreload(row,{...item,token:row.getAttribute('data-pff-row')});replacements.delete(row); continue; }
+      const fingerprint = JSON.stringify([item.account, item.thread, item.id, item.removed, item.text, item.tombstoneId,item.media.map(m=>[m.kind,m.sourceId,m.position,m.subtype]),item.kind,item.senderId,item.sentAt,item.senderName,item.replyText]);
+      const previous = seen.get(row), key = rowKey(row);
+      if (previous?.fingerprint === fingerprint) { previous.key = key; previous.props = rowProps(row); previous.waitingVoice = !!item.waitingVoice; if(item.waitingVoice)requestVoicePreload(row,{...item,token:row.getAttribute('data-pff-row')});replacements.delete(row); continue; }
       const token = `pff-${++serial}`;
       if (!item.waitingVoice&&emit({ ...item, token }) === false) {
         for (const waiting of rows.slice(index)) pending.add(waiting);
@@ -189,7 +294,7 @@ export function installMessageAdapter(config, emit, count) {
       row.setAttribute("data-pff-row", token);
       row.setAttribute("data-pff-key", JSON.stringify([item.account, item.thread, item.id]));
       if(item.waitingVoice)requestVoicePreload(row,{...item,token});
-      seen.set(row, { fingerprint });
+      seen.set(row, { fingerprint, key, props: rowProps(row), waitingVoice: !!item.waitingVoice });
       count(item.removed ? "tombstonesObserved" : "messagesObserved");
     }
     // Resume a bounded DOM walk when a burst exceeds the retained row set.
@@ -202,26 +307,26 @@ export function installMessageAdapter(config, emit, count) {
     }
     if ((pending.size || sweep) && !timer) timer = setTimeout(process, 120);
   }
-  const scan = root => {
+  const scan = (root, scrolled = false) => {
     if (!(root instanceof Element || root instanceof Document)) return;
     if (root instanceof Element) {
       if (root.closest('[data-pff-host],[data-pff-media]')) return;
-      const closest = root.closest(ROW_SELECTOR); if (closest) queue(closest);
+      const closest = root.closest(ROW_SELECTOR); if (closest) (scrolled ? queueScrolled : queue)(closest);
     }
     // Bound retained nodes even on a busy feed or very long conversation.
-    const walker = rowWalker(root);
-    while (walker.nextNode()) if (!queue(walker.currentNode)) break;
+    for (const row of root.querySelectorAll(ROW_SELECTOR)) if (!(scrolled ? queueScrolled : queue)(row)) break;
   };
-  const observer = new MutationObserver(mutations => {
-    if (!config().archive) return;
-    const changedParents=new Map(), slots=new Map();let slotCount=0;
+  function handle(mutations) {
+    if (!config().archive || !mutations.length) return;
+    if (performance.now() - lastScopePrune > SCOPE_PRUNE_MS && scopes.size) pruneScopes();
+    const changedParents=new Map(), slots=new Map(), addedByMutation=new Map();let slotCount=0;
     const rowsIn=node=>node instanceof Element?[...(node.matches(ROW_SELECTOR)?[node]:[]),...node.querySelectorAll(ROW_SELECTOR)]:[];
     for(const mutation of mutations){
       if(mutation.type!=="childList"||mutation.target.parentElement?.closest('[data-pff-host]'))continue;
       // React can replace several articles in one observer callback. Keep
       // each atomic remove+add pair instead of merging all pairs by parent.
       const removedRows=[...mutation.removedNodes].flatMap(rowsIn);
-      const addedRows=[...mutation.addedNodes].flatMap(rowsIn);
+      const addedRows=[...mutation.addedNodes].flatMap(rowsIn);addedByMutation.set(mutation,addedRows);
       const old=removedRows.map(row=>snapshots.get(row)).filter(Boolean);
       if(old.length===1&&removedRows.length===1&&addedRows.length===1&&old[0].scrollEpoch===scrollEpoch){
         replacements.set(addedRows[0],{...old[0],verifiedReplacement:true,expiresAt:Date.now()+8000});
@@ -262,18 +367,27 @@ export function installMessageAdapter(config, emit, count) {
       const prior=[...group.removed][0],row=[...group.added][0];
       if(prior.scrollEpoch===scrollEpoch)replacements.set(row,{...prior,verifiedReplacement:true,expiresAt:Date.now()+8000});
     }
+    const visited = new Set();
     for (const mutation of mutations) {
       const target = mutation.target.nodeType === Node.ELEMENT_NODE ? mutation.target : mutation.target.parentElement;
-      if (target?.closest('[data-pff-host],[data-pff-media]')) continue;
-      const row = target?.closest(ROW_SELECTOR); if (row) queue(row);
-      for (const node of mutation.addedNodes) if (node.nodeType === Node.ELEMENT_NODE) scan(node);
+      // Many mutations share one parent during a React commit; check it once.
+      if (target && !visited.has(target)) {
+        visited.add(target);
+        if (!target.closest('[data-pff-host],[data-pff-media]')) {
+          const row = target.closest(ROW_SELECTOR);
+          if (row) { markDirty(row); queue(row); }
+        }
+      }
+      // Rows inside added nodes were already found above; queue them without a second search.
+      for (const row of addedByMutation.get(mutation) || []) { if (row.closest('[data-pff-host],[data-pff-media]')) continue; if (!queue(row)) break; }
     }
-  });
+  }
+  const structure = new MutationObserver(handle), detail = new MutationObserver(handle);
   const start = () => {
-    observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true,
-      attributes: true, attributeFilter: ["data-message-id", "data-mid", "data-is-unsent","src","srcset","alt"] });
+    structure.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-message-id", "data-mid", "data-is-unsent"] });
     scan(document);
   };
   if (document.documentElement) start(); else document.addEventListener("DOMContentLoaded", start, { once: true });
-  return { mediaChanged(row){seen.delete(row);queue(row);},rescan() { seen = new WeakMap(); scan(document); }, reset() { seen = new WeakMap(); anchors = new WeakMap();snapshots=new WeakMap();replacements=new WeakMap();pending.clear();sweep=null;repeatSweep=false; } };
+  return { mediaChanged(row){seen.delete(row);queue(row);},
+    forget(token){if(typeof token!=='string'||!/^pff-\d+$/.test(token))return;const row=document.querySelector(`[data-pff-row="${token}"]`);if(row){seen.delete(row);failed.delete(row);dirty.add(row);}},rescan() { seen = new WeakMap(); failed = new WeakMap(); scan(document); }, reset() { seen = new WeakMap(); failed = new WeakMap(); dirty = new WeakSet(); anchors = new WeakMap();snapshots=new WeakMap();replacements=new WeakMap();pending.clear();sweep=null;repeatSweep=false; } };
 }

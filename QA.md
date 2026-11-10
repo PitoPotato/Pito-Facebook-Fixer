@@ -1,6 +1,53 @@
 # Quy trình kiểm thử và điều kiện phát hành
 
-Kết quả bản 0.2.0: [TEST_RESULTS.md](TEST_RESULTS.md). Kiểm thử hai tài khoản còn chưa thực hiện. Story tạm vô hiệu hóa, mang nhãn In development / Đang phát triển.
+Kết quả bản 0.3.0: [TEST_RESULTS.md](TEST_RESULTS.md). Kiểm thử hai tài khoản còn chưa thực hiện. Story tạm vô hiệu hóa, mang nhãn In development / Đang phát triển.
+
+Không dùng Chrome cá nhân của người dùng, kể cả chỉ để xem tài khoản đang đăng nhập. Lượt 0.3.0 có một lần lệch quy định này, được ghi lại trong TEST_RESULTS.
+
+## Hồi quy 0.3.0 — kho, sao lưu, khóa, media mới và hiệu năng
+
+Unit test (`npm test`, 98 test): `archive`, `media`, `vault`, `backup`, `adapter`, `background`, `i18n`, `protocol`, `sender` và `review`, `review2`, `review3` (hồi quy cho lỗi do kiểm tra độc lập tìm ra). Trọng tâm:
+
+- Thứ tự dọn kho, hạn lưu từ lúc thu hồi, lịch sử sửa có giới hạn, chi tiết người gửi không bị xóa.
+- Tìm kiếm qua nhiều trang và theo ngân sách quét; dọn kho theo phần, chỉ ghi khi đổi.
+- Video/tệp/sticker/GIF theo nội dung tệp; tải lên theo phần và tách theo tab.
+- Kho được niêm phong không còn chữ/tên/tệp đọc được; một bản ghi không bao giờ nửa niêm phong nửa không, kể cả khi sửa tin trong lúc đang niêm phong, khi nhập sao lưu đúng lúc bật/tắt khóa, hay khi hai lượt tắt khóa chạy cùng lúc.
+- Bản ghi hỏng chỉ bị đánh dấu, không làm hỏng danh sách/sao lưu và không cho gỡ khóa; tệp không đọc được bị bỏ riêng khi xuất.
+- Sao lưu bị cắt, sửa, sai mật khẩu, tiêu đề hỏng hoặc có trường lạ thì không nhập gì.
+
+Trình duyệt, dữ liệu tổng hợp, profile riêng, HTTP bị chặn:
+
+- `tests/features-browser.mjs`: sticker, GIF, tệp, video 15 MiB chỉ khi bật; người gửi/trả lời/lịch sử sửa/bộ lọc/tìm kiếm trên trang bản lưu; ba lần ghi lỗi rồi thử lại, kể cả khi tin bị thu hồi trong lúc chờ và khi có bản sửa mới hơn (bản mới phải là bản hiện tại, bản cũ vào lịch sử); khôi phục đúng từng byte; xuất sao lưu, xóa, sai mật khẩu, nhập lại qua giao diện; bật khóa, khóa (bong bóng trở về thông báo gốc), mở khóa, tắt khóa.
+- `tests/adapter-browser.mjs`: các tối ưu không làm sót tin: thu hồi đổi mã sau khi cuộn, hàng tái sử dụng không nhận nhầm bản lưu, sửa chữ tại chỗ trong chat và popup mở sau, ảnh xuất hiện muộn, hàng nhận mã sau, node React được tái sử dụng cho tin khác, vượt giới hạn vùng theo dõi.
+- `tests/perf-browser.mjs` (không nằm trong `verify`, chạy riêng): so sánh không extension / 0.2.0 / bản hiện tại. Đo CPU script qua CDP khi cuộn chat 600 tin, khi danh sách thêm/bớt hàng trong lúc cuộn và khi bảng tin thay đổi; bộ nhớ tab và worker gồm cả vùng ArrayBuffer (`usedSize + backingStorageSize`); đỉnh bộ nhớ khi lưu 4 ảnh 7,5 MiB; số lần tải lại ảnh sau 2 lần reload; thời gian dọn kho ~20.000 tin khi đổi hạn lưu và khi không bản ghi nào đổi; thời gian một tin mới phải chờ trong lúc dọn. Máy đang bận làm số tuyệt đối dao động; so sánh trong cùng một lượt đo và ghi khoảng giá trị.
+
+### Kiểm tra độc lập
+
+Mỗi lượt sửa lớn được một agent riêng kiểm tra trên bản sao đóng băng của mã (`test-results/review-round*`), với bằng chứng tự viết (fake-indexeddb, Chrome thật với HTTP bị chặn) thay vì tin kết quả của tác giả. Lỗi tìm được phải có test hồi quy trước khi đóng. 0.3.0 qua 5 vòng; vòng cuối đạt.
+
+### Facebook thật (tầng 3) cho 0.3.0
+
+Bộ điều khiển chỉ mở profile QA riêng trong `test-results/facebook-live-qa/` và từ chối mọi profile khác:
+
+```powershell
+node scripts/live-qa.mjs test-results/facebook-live-qa/<id>/profile
+node scripts/qa-command.mjs status
+node scripts/qa-command.mjs cycle            # gửi, thu hồi, kiểm tra bong bóng
+node scripts/qa-command.mjs send
+node scripts/qa-command.mjs edit             # sửa tin QA hiện tại bằng Edit của Messenger
+node scripts/qa-command.mjs details          # trường đã lưu của tin QA hiện tại
+node scripts/qa-command.mjs vault enable     # enable | lock | unlock | disable | status
+node scripts/qa-command.mjs bubble           # bong bóng đang hiện bản lưu / đang khóa
+node scripts/qa-command.mjs reload
+node scripts/qa-command.mjs verify
+node scripts/qa-command.mjs proof
+node scripts/qa-command.mjs close
+```
+
+- Chỉ đoạn chat với chính tài khoản thử nghiệm, chỉ tin có tiền tố `PFF-QA-`; `edit` và `probe` chỉ tác động lên tin QA hiện tại. `probe` chỉ đọc tên và kiểu prop React, không đọc giá trị.
+- Mọi bước được ghi vào `test-results/live-qa-0.3.0/report.json` (`steps`). Mật khẩu khóa dùng trong QA được tạo ngẫu nhiên và không ghi vào báo cáo. Xóa `control.json` (cổng và khóa của bộ điều khiển) sau mỗi phiên.
+- Đã kiểm trên 0.3.0: lưu → thu hồi → hiển thị (8 chu kỳ), sửa tin, khóa/mở khóa/tắt khóa, reload. Còn phải kiểm: sticker/GIF/tệp/video, sao lưu và nhập, tìm kiếm, nâng cấp kho cũ trên profile thật, hai tài khoản gửi–nhận, mẫu câu thu hồi ngoài EN/VI. Các mẫu này chỉ được ghi là đã kiểm khi thử bằng Facebook ở đúng ngôn ngữ đó.
+- Messenger có thể hỏi PIN khôi phục lịch sử mã hóa. Không nhập PIN; tin mới vẫn kiểm thử được.
 
 ## Hồi quy 0.2.0 — ngôn ngữ và nhận diện
 
