@@ -1,7 +1,8 @@
-import { CHANNEL, MAX_BATCH, accountId, validId } from "./shared.js";
+import { CHANNEL, MAX_BATCH, accountId, messageMeta, validId } from "./shared.js";
 import { validObservation } from "./archive.js";
 import { nativeMessageId, tombstoneBubble } from "./adapter.js";
 import {archivedMedia,sweepArchivedMedia,localizeArchivedMedia} from './media-render.js';
+import {UPLOAD_CHUNK_BYTES,encodeBase64} from './media.js';
 import {tr,localeFor} from './i18n.js';
 
 (() => {
@@ -14,7 +15,7 @@ import {tr,localeFor} from './i18n.js';
   async function rpc(message) {
     const result = await chrome.runtime.sendMessage(message);
     if (!result?.ok) {
-      const error = Error(result?.error || "Không nhận được phản hồi từ kho tin nhắn.");
+      const error = Error(result?.error || "errNoResponse");
       error.code = result?.code; error.diagnostics = result?.diagnostics; throw error;
     }
     return result;
@@ -23,9 +24,10 @@ import {tr,localeFor} from './i18n.js';
   function acceptConfiguration(message){
     const revision=Number.isSafeInteger(message.settingsRevision)?message.settingsRevision:0;
     if(!message.settings||revision<settingsRevision)return;
-    const wasEnabled=settings?.archive,wasAutoVoice=settings?.autoVoice,oldLanguage=settings?.language;settings=message.settings;settingsRevision=revision;
+    const previous=settings,wasEnabled=settings?.archive,oldLanguage=settings?.language;settings=message.settings;settingsRevision=revision;
     if(!settings.archive){generation++;queue=[];removeOverlays();}
-    configure(!wasEnabled&&settings.archive||!wasAutoVoice&&settings.autoVoice);
+    // Turning a capture type on must pick up what is already on screen.
+    configure(!wasEnabled&&settings.archive||['autoVoice','saveStickers','saveFiles','saveVideo'].some(key=>!previous?.[key]&&settings[key]));
     if(settings.archive&&oldLanguage!==settings.language)for(const row of document.querySelectorAll('[data-pff-row]')){
       const saved=restoredCache.get(row);
       if(saved&&saved.nativeId===nativeMessageId(row)&&saved.item.account===currentAccount()&&patchApplied(saved))localizePatch(saved);
@@ -56,6 +58,7 @@ import {tr,localeFor} from './i18n.js';
     }
   }
   function removeOverlays() {
+    redrawObserver.disconnect();
     redrawRows.clear(); redrawSweep = null; repeatRedrawSweep = false;
     for (const target of document.querySelectorAll('[data-pff-restored]')) {
       const row = target.closest('[data-pff-row]');
@@ -80,6 +83,7 @@ import {tr,localeFor} from './i18n.js';
     // Keep the verified archive result even if Facebook hasn't mounted the
     // tombstone text yet. The DOM observer retries when its text arrives.
     restoredCache.set(row, {item, nativeId, patch:null});
+    watchRow(row);
     const target = tombstoneBubble(row);
     if (!target) return;
     const walker = document.createTreeWalker(target, NodeFilter.SHOW_TEXT), nodes = [];
@@ -110,9 +114,12 @@ import {tr,localeFor} from './i18n.js';
   const redrawObserver = new MutationObserver(mutations => {
     sweepArchivedMedia();
     if (!settings?.archive) return;
+    const visited = new Set();
     for (const mutation of mutations) {
       const element = mutation.target instanceof Element ? mutation.target : mutation.target.parentElement;
-      const row = element?.closest('[data-pff-row]');
+      if (!element || visited.has(element)) continue;
+      visited.add(element);
+      const row = element.closest('[data-pff-row]');
       if (!row || !restoredCache.has(row)) continue;
       const saved = restoredCache.get(row);
       if (saved.nativeId === nativeMessageId(row) && patchApplied(saved)) continue;
@@ -143,9 +150,45 @@ import {tr,localeFor} from './i18n.js';
       }
       if (redrawRows.size || redrawSweep) redrawTimer = setTimeout(redraw, 0);
   }
-  const watchRedraw = () => redrawObserver.observe(document.documentElement, { childList: true, characterData: true, subtree: true,
-    attributes:true, attributeFilter:["data-message-id", "data-mid", "id"] });
-  if (document.documentElement) watchRedraw(); else document.addEventListener("DOMContentLoaded", watchRedraw, { once: true });
+  // Only rows carrying a restored message are watched. A page with nothing
+  // restored costs nothing here, however busy the rest of Facebook is.
+  function watchRow(row) {
+    redrawObserver.observe(row, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ["data-message-id", "data-mid", "id"] });
+  }
+  // Sends page-decrypted media to the worker in small pieces. The Blob itself
+  // is a handle, so no second full copy or base64 string of the file exists.
+  async function uploadMedia(items) {
+    const uploads = [];
+    for (const item of items) {
+      if (!item.media?.some(asset => asset.blob instanceof Blob)) continue;
+      // A Blob's size is free to read; ask before copying bytes that are already saved.
+      let policy = null;
+      try { policy = await rpc({ type: "capturePolicy", account: item.account, thread: item.thread, id: item.id }); } catch {}
+      for (const asset of item.media) {
+        if (!(asset.blob instanceof Blob) || !policy) continue;
+        const known = policy.assets?.find(entry => entry.kind === asset.kind && entry.position === (asset.position ?? 0));
+        if (!policy.allowed || policy.skipKinds.includes(asset.kind) || (known && known.size >= asset.blob.size)) { delete asset.blob; asset.skip = true; }
+      }
+    }
+    for (const item of items) for (const asset of item.media || []) {
+      if (!(asset.blob instanceof Blob)) continue;
+      const blob = asset.blob; delete asset.blob;
+      try {
+        const uploadId = crypto.randomUUID();
+        for (let offset = 0; offset < blob.size; offset += UPLOAD_CHUNK_BYTES) {
+          const part = new Uint8Array(await blob.slice(offset, offset + UPLOAD_CHUNK_BYTES).arrayBuffer());
+          await rpc({ type: "assetUpload", uploadId, offset, total: blob.size, data: encodeBase64(part) });
+        }
+        asset.upload = uploadId; uploads.push(uploadId);
+      } catch { asset.error = "unavailable"; }
+    }
+    return uploads;
+  }
+  function noteMissing(item, locked) {
+    if (item.account !== currentAccount() || !/^pff-\d+$/.test(item.token)) return;
+    const row = document.querySelector(`[data-pff-row="${item.token}"]`);
+    if (row?.getAttribute('data-pff-key') === JSON.stringify([item.account, item.thread, item.id])) missingCache.set(row, { nativeId: nativeMessageId(row), key: row.getAttribute('data-pff-key'), locked });
+  }
   async function drain() {
     if (busy || stopped || !settings?.archive) return;
     busy = true;
@@ -153,6 +196,7 @@ import {tr,localeFor} from './i18n.js';
       while (queue.length && !stopped && settings.archive) {
         const job = queue.shift(), batch = job.items, epoch = job.generation;
         let response;
+        const uploads = await uploadMedia(batch);
         for (let attempt = 0; attempt < 3; attempt++) {
           try { response = await rpc({ type: "observe", items: batch }); break; }
           catch (error) {
@@ -162,16 +206,17 @@ import {tr,localeFor} from './i18n.js';
             if (attempt < 2) await new Promise(resolve => setTimeout(resolve, 750 * (attempt + 1)));
           }
         }
-        if (!response) { status.dropped += batch.length; post("observationsAck", {batchId:job.batchId}); continue; }
+        // The page keeps a failed batch and retries it later; nothing is lost here.
+        if (!response) {
+          if (uploads.length) rpc({ type: "assetUploadDiscard", uploads }).catch(() => {});
+          post("observationsAck", {batchId:job.batchId,failed:true}); continue;
+        }
         status.savedBatches++; status.error = null; status.errorCode = null; status.sourceDiagnostics = null;
         status.mediaSaved+=response.mediaSaved||0;status.mediaFailed+=response.mediaFailed||0;
         if (epoch === generation) {
-          for (const item of response.unmatched || []) {
-            if(item.account!==currentAccount()||!/^pff-\d+$/.test(item.token))continue;
-            const row=document.querySelector(`[data-pff-row="${item.token}"]`);
-            if(row?.getAttribute('data-pff-key')===JSON.stringify([item.account,item.thread,item.id]))missingCache.set(row,{nativeId:nativeMessageId(row),key:row.getAttribute('data-pff-key')});
-          }
-          for (const item of response.restored || []) restore(item);
+          for (const item of response.unmatched || []) noteMissing(item, false);
+          // A locked archive leaves Facebook's own recall notice in place.
+          for (const item of response.restored || []) if (item.locked) noteMissing(item, true); else restore(item);
         }
         post("observationsAck", {batchId:job.batchId});
       }
@@ -181,7 +226,10 @@ import {tr,localeFor} from './i18n.js';
     const data = event.data;
     if (event.source !== window || event.origin !== location.origin || data?.channel !== CHANNEL || data.direction !== "page") return;
     if (["status", "observations"].includes(data.type) && typeof data.account === "string" && /^[1-9]\d{0,199}$/.test(data.account)) {
-      if (pageAccount && pageAccount !== data.account) { generation++; queue = []; removeOverlays(); }
+      if (pageAccount && pageAccount !== data.account) {
+        generation++; for (const job of queue) post("observationsAck", { batchId: job.batchId });
+        queue = []; removeOverlays();
+      }
       pageAccount = data.account;
     }
     if (data.type === "ready") { status.connected = true; configure(); }
@@ -208,11 +256,11 @@ import {tr,localeFor} from './i18n.js';
         items.push({ account: item.account, thread: item.thread, id: item.id, token: item.token,
           removed: item.removed === true, text: item.removed ? undefined : item.text, truncated: item.truncated === true,
           kind:item.kind==='emoji'?'emoji':undefined,media:item.removed?undefined:item.media,
-          tombstoneId: validId(item.tombstoneId) ? item.tombstoneId : undefined });
+          tombstoneId: validId(item.tombstoneId) ? item.tombstoneId : undefined, ...(item.removed ? {} : messageMeta(item)) });
       }
       // MAIN sends the next batch only after this one commits. An extra slot
       // permits an archive reset/reconfigure while an old request is finishing.
-      if (queue.length >= 2) return;
+      if (queue.length >= 2) { post("observationsAck", { batchId: data.batchId, failed: true }); return; }
       queue.push({batchId:data.batchId, items, generation});
       drain();
     }
@@ -220,12 +268,12 @@ import {tr,localeFor} from './i18n.js';
   chrome.runtime.onMessage.addListener((message, sender, respond) => {
     if (sender.id !== chrome.runtime.id) return;
     if (message.type === "tabStatus") {
-      const visible={restored:0,waitingForDom:0,unmatched:0};
+      const visible={restored:0,waitingForDom:0,unmatched:0,locked:0};
       for(const row of document.querySelectorAll('[data-pff-row]')){
         const saved=restoredCache.get(row),missing=missingCache.get(row);
         if(saved&&saved.nativeId===nativeMessageId(row)&&saved.item.account===currentAccount()){
           if(patchApplied(saved))visible.restored++;else visible.waitingForDom++;
-        }else if(missing&&missing.nativeId===nativeMessageId(row)&&missing.key===row.getAttribute('data-pff-key')&&tombstoneBubble(row))visible.unmatched++;
+        }else if(missing&&missing.nativeId===nativeMessageId(row)&&missing.key===row.getAttribute('data-pff-key')&&tombstoneBubble(row))visible[missing.locked?'locked':'unmatched']++;
       }
       respond({ ...status, visible, settingsRevision,settings:settings?{...settings}:null,accountDetected: !!currentAccount(), archiveEnabled: settings?.archive === true }); return;
     }

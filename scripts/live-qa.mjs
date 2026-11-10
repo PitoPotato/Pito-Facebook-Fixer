@@ -47,14 +47,14 @@ await fb.locator('[contenteditable="true"][role="textbox"]').waitFor({state:'vis
 } catch(error) { startupError=error.message; }
 const rpc=async message=>{const result=await ui.evaluate(async m=>chrome.runtime.sendMessage(m),message);if(!result?.ok)throw Error(result?.error||'RPC failed');return result;};
 const source=(await rpc({type:'status'})).sourceBuild;
-if(source!=='0.2.0-i18n-brand-v1')throw Error('QA extension worker does not match the current source build');
+if(source!=='0.3.0-archive-v1')throw Error('QA extension worker does not match the current source build');
 let current=null, mobileMessages=[];
 const persistedMobileEvents=[];
 await fb.exposeBinding('__pffRecordMobileAudit',(_source,events)=>{
   for(const event of events)if(persistedMobileEvents.length<6000)persistedMobileEvents.push(event);
 });
 const report={primaryFacebookUsed:false,profileIsolated:true,browserVersion:context.browser().version(),cycles:[]};
-const reportDir=path.resolve('test-results/live-qa-0.2.0');await mkdir(reportDir,{recursive:true});
+const reportDir=path.resolve('test-results/live-qa-0.3.0');await mkdir(reportDir,{recursive:true});
 const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function waitFor(check,message){for(let n=0;n<60;n++){if(await check())return;await delay(200);}throw Error(message);}
 async function account(){const cookies=await context.cookies('https://www.facebook.com/');const id=cookies.find(c=>c.name==='c_user')?.value;if(!/^\d+$/.test(id||''))throw Error('Test account is not signed in');return id;}
@@ -122,7 +122,21 @@ async function findCurrentById(){
   if(matches.length===1){current.id=matches[0].id;if(matches[0].key)return fb.locator(`[data-pff-key=${JSON.stringify(matches[0].key)}]`);}
   return fb.locator(`[data-message-id=${JSON.stringify(current.id)}]`);
 }
+const SAFE_STEP_FIELDS=new Set(['op','name']);
 async function execute(command){
+  const started=new Date().toISOString();
+  try{const result=await executeStep(command);await recordStep(command,started,{ok:true,result});return result;}
+  catch(error){await recordStep(command,started,{ok:false,error:error.message});throw error;}
+}
+async function recordStep(command,started,outcome){
+  if(!['send','edit','details','unsend','choose','confirm','verify','vault','bubble','reload','probe'].includes(command.op))return;
+  report.steps=report.steps||[];
+  const step=Object.fromEntries(Object.entries(command).filter(([key])=>SAFE_STEP_FIELDS.has(key)));
+  const result=outcome.result&&typeof outcome.result==='object'?JSON.parse(JSON.stringify(outcome.result,(key,value)=>key==='dialogs'?undefined:value)):outcome.result;
+  report.steps.push({...step,started,ok:outcome.ok,...(outcome.ok?{result}:{error:outcome.error}),qaMessage:current?.text?.slice(0,60)||null});
+  await writeFile(path.join(reportDir,'report.json'),JSON.stringify({...report,vaultPassword:undefined},null,2));
+}
+async function executeStep(command){
   switch(command.op){
     case 'preferences-check':{
       if(!await identityCheck())throw Error('Only the confirmed self-chat test tab may be refreshed');
@@ -353,6 +367,69 @@ async function execute(command){
       return {recordCount:records.length,identity,rows:rows.map(row=>({unsent:row.unsent,keyMatches:records.map(r=>({account:r.account===row.key[0],thread:r.thread===row.key[1],id:r.id===row.key[2],storedThread:r.thread,observedThread:row.key[1],storedId:r.id,observedId:row.key[2],removed:!!r.removedAt}))}))};
     }
     case 'adopt':return adopt(command.text);
+    // Edits only the current disposable QA message, in the self chat.
+    case 'edit':{
+      const target=await findCurrentById();
+      if(!(await target.innerText()).includes(current.text))throw Error('Selected row is no longer the synthetic QA message');
+      await target.hover();
+      const more=target.locator('xpath=ancestor::*[@role="article"][1]').locator('[aria-label="More actions"],[aria-label="More"]');
+      await more.waitFor({state:'visible',timeout:5000});await more.click();
+      const edit=fb.locator('[role="menuitem"]').filter({hasText:/^Edit$/});
+      await edit.waitFor({state:'visible',timeout:5000});await edit.click();
+      const edited=`${current.text} (đã sửa)`,editor=fb.locator('[contenteditable="true"][role="textbox"]').filter({hasText:current.text});
+      await editor.waitFor({state:'visible',timeout:5000});
+      await editor.fill(edited);await editor.press('Enter');
+      await fb.locator('[data-message-id]').filter({hasText:edited}).waitFor({state:'visible',timeout:15000});
+      const original=current.text;current.text=edited;
+      await waitFor(async()=>{const rows=(await rpc({type:'list',state:'all',query:edited})).rows;return rows.some(row=>row.text===edited&&row.history.some(entry=>entry.text===original));},'Edit history was not archived');
+      return {edited:true,historyArchived:true};
+    }
+    // Reports only fields of the current QA message, never other messages.
+    case 'details':{
+      if(!current)throw Error('No QA message');
+      const row=(await rpc({type:'list',state:'all',query:current.text})).rows.find(entry=>entry.text===current.text);
+      if(!row)throw Error('QA message not in archive');
+      return {senderNamePresent:!!row.senderName,senderIdPresent:!!row.senderId,sentAt:row.sentAt||null,historyEntries:row.history.length,removed:!!row.removedAt,labelPresent:!!row.label};
+    }
+    case 'vault':{
+      if(!['enable','lock','unlock','disable','status'].includes(command.name))throw Error('Unknown vault action');
+      const password=report.vaultPassword||(report.vaultPassword=`qa-${crypto.randomUUID()}`);
+      if(command.name==='status')return rpc({type:'vaultStatus'});
+      if(command.name==='lock')return rpc({type:'vaultLock'});
+      if(command.name==='unlock')return rpc({type:'vaultUnlock',password});
+      const status=await rpc({type:command.name==='enable'?'vaultEnable':'vaultDisable',password});
+      let after=null,slice;do{slice=await rpc({type:'vaultMigrate',after});after=slice.next;}while(after);
+      return slice.vault;
+    }
+    // Names and types of time/sender props around the current QA row only. No values.
+    case 'probe':{
+      const target=await findCurrentById();
+      if(!(await target.innerText()).includes(current.text))throw Error('Selected row is no longer the synthetic QA message');
+      return target.evaluate(row=>{
+        const key=Object.keys(row).find(k=>k.startsWith('__reactFiber$'));let fiber=row[key];const times=new Set(),senders=new Set(),ids=new Set();
+        const shape=v=>typeof v==='number'?(v>1e12&&v<4e12?'number:epoch-ms':v>1e9&&v<4e9?'number:epoch-s':'number'):typeof v==='string'?(/^\d{12,13}$/.test(v)?'string:epoch-ms':/^\d{9,10}$/.test(v)?'string:epoch-s':'string'):Array.isArray(v)?'array':typeof v;
+        for(let hops=0;fiber&&hops<30;hops++,fiber=fiber.return){
+          const props=fiber.memoizedProps;if(!props||typeof props!=='object')continue;
+          const visit=(prefix,object,depth)=>{
+            for(const [name,value] of Object.entries(object)){
+              const label=`${hops}:${prefix}${name}`;
+              if(/time|stamp|date|sentat/i.test(name))times.add(`${label}=${shape(value)}`);
+              if(/sender|author|actor/i.test(name))senders.add(`${label}=${shape(value)}`);
+              if(/^(?:message_?id|messageID)$/i.test(name))ids.add(label);
+              if(depth<2&&value&&typeof value==='object'&&!Array.isArray(value)&&!(value instanceof Node)&&Object.getPrototypeOf(value)===Object.prototype)visit(`${prefix}${name}.`,value,depth+1);
+            }
+          };
+          visit('',props,0);
+        }
+        return {times:[...times].slice(0,60),senders:[...senders].slice(0,40),messageIdPaths:[...ids].slice(0,20)};
+      });
+    }
+    case 'bubble':{
+      if(!current)throw Error('No QA message');
+      const restored=await fb.locator('[data-pff-restored]').filter({hasText:current.text}).count();
+      const status=await tabStatus();
+      return {restoredForCurrent:restored,visible:status.visible};
+    }
     case 'send':{
       if(!await identityCheck())throw Error('Self-chat identity not confirmed');
       const text=`PFF-QA-${report.cycles.length+1}-${crypto.randomUUID()} — kiểm thử lưu và thu hồi`;
@@ -418,7 +495,7 @@ async function execute(command){
       const result={cycle:current.cycle,captureCommitted:true,unsendLookupPassed:true,nativeBubbleRenderingPassed:true,tooltipProvenancePassed:true,stats:(await rpc({type:'status'})).stats};
       const existing=report.cycles.findIndex(row=>row.cycle===current.cycle);
       if(existing===-1)report.cycles.push(result);else report.reloadVerification=result;
-      await writeFile(path.join(reportDir,'report.json'),JSON.stringify(report,null,2));return result;
+      await writeFile(path.join(reportDir,'report.json'),JSON.stringify({...report,vaultPassword:undefined},null,2));return result;
     }
     case 'cycle':{
       await execute({op:'send'});

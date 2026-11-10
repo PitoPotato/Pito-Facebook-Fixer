@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "PitoFacebookFixer",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Keep typing focus, reduce automatic Facebook refreshes, and save recalled messages locally. English and Vietnamese.",
   "minimum_chrome_version": "120",
   "permissions": [

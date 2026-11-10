@@ -152,8 +152,8 @@
     "vi": "Lưu và hiện tin thu hồi"
   },
   "captureHelp": {
-    "en": "Save text, emoji, photos and voice notes. Restore them inside the Facebook message bubble.",
-    "vi": "Lưu văn bản, emoji, ảnh và voice; hiển thị trong bong bóng Facebook khi thu hồi."
+    "en": "Save text, emoji, photos, voice notes and optional files. Restore them inside the Facebook message bubble.",
+    "vi": "Lưu chữ, emoji, ảnh, tin nhắn thoại và tệp tùy chọn. Hiển thị lại ngay trong bong bóng tin nhắn Facebook."
   },
   "story": {
     "en": "Hide story views",
@@ -196,12 +196,12 @@
     "vi": "Giới hạn kho"
   },
   "oldFirst": {
-    "en": "Oldest eligible first",
-    "vi": "Dọn tin cũ trước"
+    "en": "Recalled messages go last",
+    "vi": "Tin thu hồi được dọn sau cùng"
   },
   "retentionIntro": {
-    "en": "Age starts when the extension first saves a message. Set 0 days to disable age-based cleanup.",
-    "vi": "Tuổi tin tính từ lần extension lưu đầu tiên. 0 ngày nghĩa là không dọn theo tuổi."
+    "en": "Age starts when the extension first saves a message. A recalled message counts from its recall. Set 0 days to disable age-based cleanup.",
+    "vi": "Tuổi tin tính từ lúc extension lưu lần đầu. Tin thu hồi tính từ lúc thu hồi. Đặt 0 ngày để tắt dọn theo tuổi."
   },
   "budget": {
     "en": "Storage budget",
@@ -236,8 +236,8 @@
     "vi": "0 = không giới hạn tuổi"
   },
   "mediaRetention": {
-    "en": "Separate photo and voice retention",
-    "vi": "Thời hạn riêng cho ảnh và voice"
+    "en": "Separate retention and video size",
+    "vi": "Thời gian lưu riêng và cỡ video"
   },
   "imageRetention": {
     "en": "Photo retention",
@@ -308,32 +308,32 @@
     "vi": "Xóa toàn bộ kho"
   },
   "storageNote": {
-    "en": "The budget covers saved data; browser overhead uses extra space. Up to 20 files/message, 8 MiB/file and 16 MiB/message. The archive is not password-encrypted. Uninstalling deletes it.",
-    "vi": "Ngân sách tính trên dữ liệu đã lưu; trình duyệt cần thêm dung lượng quản lý. Tối đa 20 tệp/tin, 8 MiB/tệp, 16 MiB/tin. Kho chưa mã hóa bằng mật khẩu; gỡ extension sẽ xóa kho."
+    "en": "The budget covers saved data; browser overhead uses extra space. Up to 20 files/message, 8 MiB/file and 16 MiB/message; videos have their own limit. Uninstalling deletes the archive, so export a backup to keep it.",
+    "vi": "Ngân sách tính phần dữ liệu đã lưu; trình duyệt dùng thêm một phần nhỏ. Tối đa 20 tệp/tin, 8 MiB/tệp và 16 MiB/tin; video có giới hạn riêng. Gỡ extension sẽ xóa kho, hãy xuất bản sao lưu để giữ lại."
   },
   "archiveEyebrow": {
     "en": "WHAT YOU KEPT",
     "vi": "NHỮNG ĐIỀU ĐÃ GIỮ LẠI"
   },
   "archiveTitle": {
-    "en": "Your recalled messages.",
-    "vi": "Bản lưu tin thu hồi."
+    "en": "What you kept.",
+    "vi": "Những gì bạn đã giữ lại."
   },
   "archiveIntro": {
-    "en": "Revisit content the extension saved on this device before it was recalled.",
-    "vi": "Xem lại nội dung extension đã kịp lưu trên thiết bị này."
+    "en": "Browse recalled and saved messages on this device, including edit history.",
+    "vi": "Xem tin đã thu hồi và các bản lưu trên máy này, gồm cả lịch sử sửa."
   },
   "refresh": {
     "en": "Refresh",
     "vi": "Làm mới"
   },
   "searchLabel": {
-    "en": "Filter archived messages on this page",
-    "vi": "Lọc bản lưu trong trang này"
+    "en": "Search all saved messages",
+    "vi": "Tìm trong toàn bộ bản lưu"
   },
   "searchPlaceholder": {
-    "en": "Filter messages on this page…",
-    "vi": "Lọc nội dung trong trang này…"
+    "en": "Search all saved messages…",
+    "vi": "Tìm trong toàn bộ bản lưu…"
   },
   "pageSize": {
     "en": "30 messages / page",
@@ -396,8 +396,8 @@
     "vi": "Xóa toàn bộ bản lưu?"
   },
   "clearHelp": {
-    "en": "All saved text and files will be permanently deleted, including protected recalled messages. New captures will continue if enabled.",
-    "vi": "Nội dung và tệp trong kho sẽ bị xóa vĩnh viễn, kể cả tin thu hồi được bảo vệ. Extension vẫn tiếp tục lưu tin mới nếu đang bật."
+    "en": "All saved text and files will be permanently deleted, including protected recalled messages. The password lock is removed too. New captures will continue if enabled.",
+    "vi": "Toàn bộ chữ và tệp đã lưu sẽ bị xóa vĩnh viễn, gồm cả tin thu hồi được bảo vệ. Khóa bằng mật khẩu cũng được gỡ. Việc lưu tin mới vẫn tiếp tục nếu đang bật."
   },
   "keepArchive": {
     "en": "Keep archive",
@@ -466,5 +466,169 @@
   "openSettings": {
     "en": "Open settings",
     "vi": "Mở cài đặt"
+  },
+  "backup": {
+    "en": "Backup & lock",
+    "vi": "Sao lưu & khóa"
+  },
+  "backupEyebrow": {
+    "en": "KEEP IT SAFE",
+    "vi": "GIỮ AN TOÀN"
+  },
+  "backupTitle": {
+    "en": "Back up and protect your archive.",
+    "vi": "Sao lưu và bảo vệ kho của bạn."
+  },
+  "backupIntro": {
+    "en": "Export an encrypted copy and choose who can read what you saved.",
+    "vi": "Xuất một bản sao đã mã hóa và chọn ai đọc được những gì bạn đã lưu."
+  },
+  "backupExportTitle": {
+    "en": "Export a backup",
+    "vi": "Xuất bản sao lưu"
+  },
+  "backupExportHelp": {
+    "en": "Creates an encrypted file you keep yourself. Removing the extension deletes the archive, but not this file. Nothing is uploaded.",
+    "vi": "Tạo một tệp đã mã hóa do bạn tự giữ. Gỡ extension sẽ xóa kho nhưng không xóa tệp này. Không có gì được tải lên."
+  },
+  "backupPassword": {
+    "en": "Backup password",
+    "vi": "Mật khẩu sao lưu"
+  },
+  "backupConfirm": {
+    "en": "Repeat password",
+    "vi": "Nhập lại mật khẩu"
+  },
+  "backupExportButton": {
+    "en": "Export backup",
+    "vi": "Xuất bản sao lưu"
+  },
+  "backupImportTitle": {
+    "en": "Import a backup",
+    "vi": "Nhập bản sao lưu"
+  },
+  "backupImportHelp": {
+    "en": "Adds messages from a backup file. Messages already in the archive stay as they are, and nothing is deleted to make room.",
+    "vi": "Thêm tin từ tệp sao lưu. Tin đã có trong kho được giữ nguyên, và không xóa gì để lấy chỗ."
+  },
+  "backupFile": {
+    "en": "Backup file",
+    "vi": "Tệp sao lưu"
+  },
+  "backupImportButton": {
+    "en": "Import backup",
+    "vi": "Nhập bản sao lưu"
+  },
+  "backupForgot": {
+    "en": "If you forget this password, the file can’t be opened.",
+    "vi": "Nếu quên mật khẩu này, sẽ không mở được tệp."
+  },
+  "persistTitle": {
+    "en": "Protect from browser cleanup",
+    "vi": "Bảo vệ khỏi việc trình duyệt tự dọn"
+  },
+  "persistButton": {
+    "en": "Ask the browser to protect it",
+    "vi": "Yêu cầu trình duyệt bảo vệ"
+  },
+  "vaultTitle": {
+    "en": "Password lock",
+    "vi": "Khóa bằng mật khẩu"
+  },
+  "vaultHelp": {
+    "en": "Encrypts saved text, files, names and replies on this device. IDs, times, file types and sizes stay readable, and each message takes about 0.5 KiB more. While locked, new messages are still saved, but edits and media added to earlier messages are skipped until you unlock. If you forget the password, the only way out is to clear the archive.",
+    "vi": "Mã hóa chữ, tệp, tên và nội dung trả lời đã lưu trên máy này. Mã định danh, thời gian, loại tệp và dung lượng vẫn đọc được, và mỗi tin tốn thêm khoảng 0,5 KiB. Khi đang khóa, tin mới vẫn được lưu, nhưng bản sửa và tệp thêm vào tin cũ bị bỏ qua đến khi mở khóa. Nếu quên mật khẩu, cách duy nhất là xóa toàn bộ kho."
+  },
+  "vaultPassword": {
+    "en": "Password",
+    "vi": "Mật khẩu"
+  },
+  "vaultEnableButton": {
+    "en": "Turn on password lock",
+    "vi": "Bật khóa bằng mật khẩu"
+  },
+  "vaultUnlockButton": {
+    "en": "Unlock",
+    "vi": "Mở khóa"
+  },
+  "vaultLockButton": {
+    "en": "Lock now",
+    "vi": "Khóa ngay"
+  },
+  "vaultDisableButton": {
+    "en": "Turn off password lock",
+    "vi": "Tắt khóa bằng mật khẩu"
+  },
+  "vaultDisableHelp": {
+    "en": "Decrypts everything back to the normal archive.",
+    "vi": "Giải mã toàn bộ về kho bình thường."
+  },
+  "stateLabel": {
+    "en": "Show messages",
+    "vi": "Hiển thị tin"
+  },
+  "stateRemoved": {
+    "en": "Recalled",
+    "vi": "Đã thu hồi"
+  },
+  "stateNormal": {
+    "en": "Not recalled",
+    "vi": "Chưa thu hồi"
+  },
+  "stateAll": {
+    "en": "All saved",
+    "vi": "Tất cả bản lưu"
+  },
+  "stateVanished": {
+    "en": "Auto-deleted (in development)",
+    "vi": "Đã tự xóa (đang phát triển)"
+  },
+  "saveStickers": {
+    "en": "Save stickers and GIFs",
+    "vi": "Lưu sticker và GIF"
+  },
+  "saveStickersHelp": {
+    "en": "Save stickers and GIFs visible in a conversation.",
+    "vi": "Lưu sticker và GIF đang hiển thị trong cuộc trò chuyện."
+  },
+  "saveFiles": {
+    "en": "Save attached files",
+    "vi": "Lưu tệp đính kèm"
+  },
+  "saveFilesHelp": {
+    "en": "Save attachments with a direct link, up to 8 MiB each. Files are kept for download and are never opened automatically.",
+    "vi": "Lưu tệp có liên kết trực tiếp, tối đa 8 MiB mỗi tệp. Tệp chỉ để tải về, không bao giờ tự mở."
+  },
+  "saveVideo": {
+    "en": "Save videos",
+    "vi": "Lưu video"
+  },
+  "saveVideoHelp": {
+    "en": "Off by default because videos take up a lot of storage.",
+    "vi": "Mặc định tắt vì video chiếm nhiều dung lượng."
+  },
+  "videoRetention": {
+    "en": "Video retention",
+    "vi": "Thời gian lưu video"
+  },
+  "fileRetention": {
+    "en": "File retention",
+    "vi": "Thời gian lưu tệp"
+  },
+  "maxVideo": {
+    "en": "Largest video to save",
+    "vi": "Video lớn nhất được lưu"
+  },
+  "maxVideoRange": {
+    "en": "1 to 64 MiB",
+    "vi": "1 đến 64 MiB"
+  },
+  "cleanVideos": {
+    "en": "Clean up videos",
+    "vi": "Dọn riêng video"
+  },
+  "cleanFiles": {
+    "en": "Clean up files",
+    "vi": "Dọn riêng tệp"
   }
 }

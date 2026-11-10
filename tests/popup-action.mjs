@@ -12,7 +12,11 @@ await context.route(/^https?:\/\//,route=>route.abort());
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function until(check,message){for(let i=0;i<80;i++){if(await check())return;await sleep(100);}throw Error(message);}
 try{
- const worker=context.serviceWorkers()[0]||await context.waitForEvent('serviceworker'),extensionId=new URL(worker.url()).hostname;
+ // Pick this extension's own worker; Chrome can list other internal workers first.
+ const isOwn=w=>/^chrome-extension:\/\/[a-p]{32}\/background\.js$/.test(w.url());
+ const firstWorker=context.serviceWorkers().find(isOwn)||await context.waitForEvent('serviceworker',{predicate:isOwn}),extensionId=new URL(firstWorker.url()).hostname;
+ // An MV3 worker can be stopped and restarted by Chrome at any time; always use the live one.
+ const worker={async evaluate(fn,arg){let last;for(let attempt=0;attempt<10;attempt++){const live=context.serviceWorkers().filter(isOwn).at(-1)||await context.waitForEvent('serviceworker',{predicate:isOwn,timeout:5000}).catch(()=>null);try{if(live)return await live.evaluate(fn,arg);}catch(error){last=error;}await sleep(200);}throw last||Error('Extension worker unavailable');}};
  const host=context.pages()[0];await host.goto('about:blank');await host.bringToFront();
  const browserSession=await context.browser().newBrowserCDPSession(),results=[],version=await worker.evaluate(()=>chrome.runtime.getManifest().version);
  for(const language of ['en','vi'])for(const theme of ['system','light','dark']){
