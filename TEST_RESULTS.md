@@ -1,3 +1,42 @@
+# Kết quả kiểm thử 0.4.0 — đọc tin từ dữ liệu của Messenger
+
+Ngày: 11–12/11/2026. Source build: `0.4.0-archive-v1`.
+
+**Tự động.** `npm run verify` đạt toàn bộ: 99/99 unit test và 17/17 mục build/trình duyệt (thêm `tests/bridge-browser.mjs`, dữ liệu tổng hợp, HTTP bị chặn). Bài mới kiểm: lưu trước khi vẽ, người gửi và giờ gửi, thu hồi → ô "đã thu hồi", hai tin thu hồi trong một lô, cứu tin trước khi bị xóa, sửa tin, "xóa ở phía tôi" không bị coi là thu hồi, chat nhóm qua thủ tục kho, thủ tục không đọc được bị bỏ qua, một lô đi qua hai lớp bọc chỉ tính một lần, công tắc tắt, và Messenger nhận đúng tham số/`this`/giá trị trả về.
+
+**Facebook thật.** Profile QA riêng (tài khoản thử nghiệm "Pito Mon") chạy bản build của nhánh; tin gửi từ hai tài khoản thử nghiệm khác. Chỉ gửi tin `PFF-QA-…`.
+
+| Ca | Kết quả |
+|---|---|
+| Chữ nhận khi đang ở trang chủ, chưa mở chat, rồi bị thu hồi | Đạt: nội dung, người gửi, giờ gửi, giờ thu hồi |
+| Ba tin gửi liền, thu hồi sau 9–14 s, chưa mở chat | Đạt cả ba |
+| Tin nhắn chờ từ người lạ, chưa mở chat | Đạt |
+| 8 tin gửi dồn dập, chưa mở chat | Đạt cả 8 |
+| Tin bị sửa khi chưa mở chat | Đạt, giữ bản trước khi sửa |
+| Chữ và ảnh nhận khi đang mở chat, rồi bị thu hồi | Đạt, hiện lại tại chỗ |
+| Self chat: thu hồi nhanh (~12 s), thu hồi thường, sửa rồi thu hồi, tải lại rồi thu hồi, trả lời rồi thu hồi | Đạt |
+| Self chat: một ảnh và album hai ảnh bị thu hồi | Đạt, có người gửi và giờ gửi |
+| Bản cuối kết nối cả hai đường dữ liệu trên Facebook thật | Đạt, 0 thủ tục không đọc được |
+| Lỗi của nguồn mới qua mọi lượt | 0 |
+
+Hiệu năng (đo riêng bằng Node, không phải trên Facebook): dưới 1 µs cho mỗi lô sự kiện thường, khoảng 4 µs cho mỗi tin.
+
+**Chưa đạt hoặc chưa thử**
+
+- Thu hồi trong **chat nhóm** với bản cuối: chưa thử trên Facebook thật. Bằng chứng hiện có là bài test tự động và một lượt đầu dò chỉ-đọc cho thấy đúng chuỗi `LSInsertMessage` → `LSEditMessage` → `LSDeleteThenInsertMessage` (cùng ID, `isUnsent`).
+- Ảnh trong chat chưa mở: không lưu được. Ảnh nhận không được trang tạo qua `URL.createObjectURL` trong lúc thử.
+- "Xóa ở phía tôi" từ tài khoản khác: mới có test tự động.
+- Offline rồi online lại, chuyển tài khoản, kho đầy, tin tự xóa lúc hết hạn (thời hạn thử là 24 giờ): chưa thử.
+- RAM/CPU so với 0.2.0 trên Facebook thật: chưa đo.
+
+**Thí nghiệm không đạt (không có mã trong bản này):** lưu khóa giải mã media thay cho tệp (khóa chỉ nằm trong kho Facebook đã mã hóa); bắt tin qua thông báo của trang (trang không phát thông báo nào, chỉ đổi tiêu đề tab).
+
+**Lệch quy trình, ghi lại cho minh bạch.** Theo yêu cầu trực tiếp của người dùng, một tài khoản thử nghiệm ("Potatoo Pito") được điều khiển trong Chrome cá nhân của họ để gửi tin, trái với quy định "không dùng Chrome cá nhân" trong [QA.md](QA.md). Chỉ mở một tab Messenger tới đoạn chat với tài khoản thử nghiệm, không tạo mã PIN, đã đóng tab sau khi thử. Người dùng cũng đã gửi một ảnh thật trong một lượt thử; ảnh nằm trong profile QA cục bộ (`test-results`, không đưa lên git).
+
+Sửa kèm: `tests/vault.test.js` rớt ngẫu nhiên khoảng 1/12 lần vì tìm ba chữ "PNG" trong 600 KB dữ liệu mã hóa; nay kiểm cả chữ ký PNG 8 byte.
+
+---
+
 # Kết quả kiểm thử 0.3.1 — ảnh thu hồi tại chỗ, phóng to và chuyển ảnh
 
 Ngày: 11/11/2026. Source build: `0.3.1-archive-v1`. Chỉ dùng dữ liệu tổng hợp, profile mới, HTTP bị chặn. **Chưa thử trên Facebook thật.**

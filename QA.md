@@ -4,6 +4,19 @@ Kết quả bản 0.3.0: [TEST_RESULTS.md](TEST_RESULTS.md). Kiểm thử hai t�
 
 Không dùng Chrome cá nhân của người dùng, kể cả chỉ để xem tài khoản đang đăng nhập. Lượt 0.3.0 có một lần lệch quy định này, được ghi lại trong TEST_RESULTS.
 
+## Hồi quy 0.4.0 — nguồn dữ liệu của Messenger
+
+`npm run test:bridge` (`tests/bridge-browser.mjs`, có trong `verify`) dùng profile mới, HTTP bị chặn và một trang giả lập đúng những gì đã đo trên tài khoản thử nghiệm: module được định nghĩa muộn, `exports` bị thay rồi mới được gán `handleEvents`, chữ ở dạng "vault", Messenger xóa dòng trong bộ nhớ ngay trong handler, và dòng DOM tới sau. Thủ tục kho giả lập nhận tham số theo vị trí với context ở cuối.
+
+Điều kiện phải giữ khi sửa [src/bridge.js](src/bridge.js):
+
+- Messenger nhận đúng cùng mảng tham số, cùng `this` và cùng giá trị trả về; lỗi của extension không bao giờ lan ra.
+- Không đoán: thu hồi chỉ được ghép với ô "đã thu hồi" khi cặp là duy nhất; vị trí trường của thủ tục kho đọc từ mã của chính thủ tục, thiếu trường bắt buộc thì bỏ qua thủ tục đó.
+- Xóa mà không có tin "Revoked" đi kèm không phải là thu hồi.
+- Tắt công tắc thì nguồn này không lưu gì.
+
+Trên Facebook thật, trang Chẩn đoán phải hiện hai dòng "đã kết nối" (chat mã hóa; chat nhóm và chat thường), "Lỗi nguồn dữ liệu" bằng 0 và "Phần nguồn dữ liệu không đọc được" bằng 0. Kết quả lượt thử: mục đầu của [TEST_RESULTS.md](TEST_RESULTS.md).
+
 ## Hồi quy 0.3.1 — ảnh thu hồi tại chỗ, phóng to và chuyển ảnh
 
 Lỗi gốc: bong bóng thu hồi chỉ hiện chữ thay thế *“Recalled photo — saved on this device”* của khung ảnh. Đã tái hiện bằng dữ liệu tổng hợp với hai nguyên nhân: (1) một lần đọc kho trả `errBusy` thì ảnh không bao giờ được thử lại; (2) Facebook vẽ lại bong bóng thì ảnh bị tạo lại và đọc lại từ phần đầu. Với mã cũ, khung ảnh không bao giờ tải xong trong cả hai trường hợp; không có lỗi nào thì ảnh vẫn tải bình thường.

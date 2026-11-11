@@ -1,6 +1,34 @@
 # PitoFacebookFixer
 
-Extension Manifest V3 cho Chrome/Edge trên máy tính. Bản thử nghiệm 0.3.1.
+Extension Manifest V3 cho Chrome/Edge trên máy tính. Bản thử nghiệm 0.4.0.
+
+## Bản 0.4.0: đọc tin từ dữ liệu của Messenger, chạy song song với cách cũ
+
+Kết quả kiểm thử: mục đầu của [TEST_RESULTS.md](TEST_RESULTS.md). Cập nhật từ 0.3.1: bấm Reload extension ở `chrome://extensions`, rồi tải lại tab Facebook. Kho giữ nguyên.
+
+Từ bản này extension có **hai nguồn** cùng ghi vào một kho, theo ID tin nên không tạo bản trùng:
+
+- **Đọc giao diện (cách cũ, luôn chạy).** Đọc các dòng tin Messenger đã vẽ ra. Đây vẫn là nguồn duy nhất của ảnh, voice, video và file.
+- **Đọc dữ liệu của Messenger (mới, [src/bridge.js](src/bridge.js)).** Nhận tin ngay khi Messenger chuyển nó vào trang, trước khi vẽ ra:
+  - Chat mã hóa đầu-cuối: qua `MAWBridgeUIEventHandler.handleEvents`.
+  - Chat nhóm và chat không mã hóa: qua các thủ tục `LSInsertMessage`, `LSUpsertMessage`, `LSDeleteThenInsertMessage`. Vị trí từng trường được đọc từ chính mã của thủ tục, không gán cứng.
+
+**Nguồn mới thêm được gì**
+
+- Lưu tin chữ **khi chưa mở đoạn chat** (chỉ cần một tab Facebook đang mở, kể cả trang chủ), gồm cả tin nhắn chờ từ người lạ.
+- Có **người gửi và giờ gửi** chính xác cho tin chữ, và bổ sung hai thông tin này cho ảnh/voice mà cách cũ đọc được.
+- Biết tin bị sửa và giữ bản trước khi sửa (chat mã hóa).
+- Ghi nhận thu hồi ngay cả khi dòng tin chưa từng hiện lên; nhiều tin bị thu hồi cùng lúc được ghép đúng từng ô "đã thu hồi" theo giờ gửi.
+- Đọc lại nội dung từ bộ nhớ của Messenger ngay trước khi lệnh thu hồi xóa nó, cho tin đã tải từ lịch sử.
+
+**Giới hạn**
+
+- Ảnh, voice, file trong đoạn chat **chưa mở** vẫn không lưu được.
+- Tin nhóm bị sửa khi chưa mở chat chưa được bắt.
+- Phụ thuộc tên module nội bộ của Facebook. Khi Facebook đổi, nguồn mới tự im lặng (xem số đếm ở trang Chẩn đoán) và cách cũ vẫn chạy.
+- Vẫn cần ít nhất một tab Facebook hoặc Messenger đang mở.
+
+**An toàn.** Nguồn mới chỉ đọc: tham số, `this` và giá trị trả về tới Messenger giữ nguyên; mọi lỗi bị nuốt và đếm lại. Tắt bằng công tắc *Đọc tin từ dữ liệu của Messenger (thử nghiệm)* trong trang tùy chọn (mặc định bật); khi tắt, extension chạy như 0.3.1.
 
 ## Bản 0.3.1: ảnh thu hồi hiện lại tại chỗ, phóng to và chuyển ảnh
 

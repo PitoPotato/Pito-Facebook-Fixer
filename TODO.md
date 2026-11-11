@@ -13,6 +13,16 @@ Quy tắc áp dụng cho mọi mục: làm đúng [AGENTS.md](AGENTS.md) và [QA
 
 Nghiên cứu nền: [docs/message-recovery-research.md](docs/message-recovery-research.md).
 
+## 0.4.0
+
+- [x] **Mục 2.1 — nguồn dữ liệu mới, chạy song song với đọc giao diện.** Kết quả: **[Facebook thật]** cho chat mã hóa; **[Một phần]** cho chat nhóm (mới có test tự động và đầu dò, chưa thử thu hồi nhóm với bản cuối).
+  - Đã làm: [src/bridge.js](src/bridge.js) đọc `MAWBridgeUIEventHandler.handleEvents` (chat mã hóa) và các thủ tục `LSInsertMessage`/`LSUpsertMessage`/`LSDeleteThenInsertMessage` (chat nhóm, chat thường); cứu dòng gốc từ bộ nhớ của Messenger trước khi bị xóa; lấy `senderId`, `timestampMs`, lịch sử sửa.
+  - Câu trả lời cho các câu hỏi ở mục 2.1: bắt được trước khi dựng; áp dụng cho chat chưa mở (chỉ chữ); chat mã hóa đổi ID khi thu hồi (tin "Revoked" mới trong cùng lô), chat thường giữ ID; hai loại chat đi hai đường khác nhau.
+  - Còn phải làm: thử thu hồi nhóm trên Facebook thật; sửa tin nhóm khi chưa mở chat (`LSEditMessage`); ảnh khi chưa mở chat; đo RAM/CPU trên Facebook thật; các ca còn lại của ma trận 2.5.
+- [ ] **Mục 2.2 — media.** Bọc `URL.createObjectURL`: chỉ thấy ảnh gửi đi, không thấy ảnh nhận → chưa làm. Lưu `media_key`: **không khả thi** từ trang (khóa nằm trong kho đã mã hóa).
+- [ ] **Mục 2.3.** Giữ tab không bị tạm ngưng: có sẵn ở nhánh `exp/2.3a-keep-tab`, chưa gộp. Hook `Notification`: **không có dữ liệu** (trang không phát thông báo).
+- [ ] **Mục 2.4 — tin tự xóa.** Có tín hiệu `EphemeralSettingsUpdatedForUI` và `MsgsStartCountdown`; chưa quan sát được lúc hết hạn.
+
 ## 0.3.1
 
 - [x] **Ảnh thu hồi chỉ hiện chữ “Ảnh đã thu hồi — bản lưu trên máy” thay cho ảnh.** Người dùng báo lỗi này với tin nhận được.

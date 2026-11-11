@@ -47,7 +47,7 @@ await fb.locator('[contenteditable="true"][role="textbox"]').waitFor({state:'vis
 } catch(error) { startupError=error.message; }
 const rpc=async message=>{const result=await ui.evaluate(async m=>chrome.runtime.sendMessage(m),message);if(!result?.ok)throw Error(result?.error||'RPC failed');return result;};
 const source=(await rpc({type:'status'})).sourceBuild;
-if(source!=='0.3.1-archive-v1')throw Error('QA extension worker does not match the current source build');
+if(source!=='0.4.0-archive-v1')throw Error('QA extension worker does not match the current source build');
 let current=null, mobileMessages=[];
 const persistedMobileEvents=[];
 await fb.exposeBinding('__pffRecordMobileAudit',(_source,events)=>{

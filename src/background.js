@@ -5,7 +5,7 @@ import {MAX_ASSETS,MAX_MESSAGE_MEDIA_BYTES,MAX_VIDEO_BYTES,UPLOAD_CHUNK_BYTES,as
 import { sessionKeys } from "./keys.js";
 
 const archive = new Archive(undefined, sessionKeys);
-const SOURCE_BUILD = "0.3.1-archive-v1";
+const SOURCE_BUILD = "0.4.0-archive-v1";
 const UPLOAD_TTL = 60000, MAX_UPLOAD_BUFFER = 96 * 1024 * 1024;
 let chain = Promise.resolve(), pending = 0;
 const uploads = new Map();
