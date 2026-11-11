@@ -42,7 +42,21 @@ const fixture=`<!doctype html><meta charset="utf-8"><style>body{font:15px system
     render(id,html,label='At 01:00, Pito'){const row=document.createElement('div');row.setAttribute('data-message-id',id);row.setAttribute('aria-label',label);row.innerHTML=html;document.getElementById('log').append(row);return row;},
     replace(oldId,newId,html){const old=document.querySelector('[data-message-id="'+oldId+'"]');const row=document.createElement('div');row.setAttribute('data-message-id',newId);row.setAttribute('aria-label','At 01:00, Pito');row.innerHTML=html;if(old)old.replaceWith(row);else document.getElementById('log').append(row);},
   };
-  setTimeout(()=>{window.fb.define();
+  // Store procedures for chats that are not end-to-end encrypted: positional
+  // arguments with the context last, fields named in the source as on Messenger.
+  window.fb.storeCalls=[];
+  window.fb.defineStore=()=>{
+    const make=tag=>function e(){var e=arguments,t=e[e.length-1];window.fb.storeCalls.push({tag,self:this,argc:e.length,ctx:t});
+      const row={threadKey:e[3],timestampMs:e[5],messageId:e[8],senderId:e[10],text:e[0],isUnsent:e[17],replyMessageText:e[28]};
+      const i=rows.findIndex(r=>r.messageId===row.messageId);if(i>=0)rows.splice(i,1);rows.push(row);return 'store-'+tag;};
+    for(const name of ['LSInsertMessage','LSUpsertMessage','LSDeleteThenInsertMessage']){const fn=make(name),record={exports:{},defaultExport:null,factoryFinished:false};modulesMap[name]=record;record.exports=fn;record.defaultExport=fn;record.factoryFinished=true;}
+    // A procedure whose source cannot be read the expected way must be left alone.
+    const odd=function(){return 'odd-result';};modulesMap.LSUpsertMessage.exports=odd;modulesMap.LSUpsertMessage.defaultExport=odd;
+  };
+  window.fb.store=(name,fields)=>{const args=Array(60).fill(null);args[0]=fields.text??null;args[3]=i64(30003);args[5]=i64(fields.ts);args[8]=fields.id;args[10]=i64(fields.sender);args[17]=!!fields.unsent;args[28]=fields.reply??null;
+    const ctx={ctx:true};args.push(ctx);const self={caller:true};const out=modulesMap[name].exports.apply(self,args);const call=window.fb.storeCalls.at(-1);
+    return {out,self:call?.self===self,ctx:call?.ctx===ctx,argc:call?.argc};};
+  setTimeout(()=>{window.fb.defineStore();window.fb.define();
     // A message delivered the moment the module exists, before the page may have settings.
     window.fb.dispatch([{tag:'NewMsg',value:{msgId:'20002@msgr.7600000000000000001',chatJid:'20002@msgr',type_:'Text',content:encode('PFF early message'),sender:'20002',ts:1794400000,isAuthorMe:false}}]);
   },150);
@@ -120,6 +134,53 @@ try{
   assert.equal(await record('msgr.7600000000000000006'),undefined);
   report.editHistory=true;report.deleteForMeIgnored=true;report.duplicatesIdempotent=true;report.unreadableValueIgnored=true;
 
+  // 6. Two recalls in one batch are paired through the send time, not by order.
+  await page.evaluate(()=>{const m=(n,text,ts)=>({tag:'NewMsg',value:{msgId:'20002@msgr.76000000000000000'+n,chatJid:'20002@msgr',type_:'Text',content:fb.encode(text),sender:'20002',ts,sortOrderMs:ts*1000+7}});
+    fb.dispatch([m(21,'PFF cặp A',1794401000),m(22,'PFF cặp B',1794401001)]);});
+  await until(async()=>!!await record('msgr.7600000000000000022'),'pair base');
+  await page.evaluate(()=>{const r=(n,ts)=>({tag:'NewMsg',value:{msgId:'20002@msgr.76000000000000001'+n,chatJid:'20002@msgr',type_:'Revoked',sender:'20002',ts,sortOrderMs:ts*1000+7}});
+    fb.dispatch([{tag:'DeleteMessages',value:{threadJid:'20002@msgr',messages:[{msgId:'20002@msgr.7600000000000000021',ts:1794401100},{msgId:'20002@msgr.7600000000000000022',ts:1794401100}]}},r(22,1794401001),r(21,1794401000)]);
+
+    fb.render('20002@msgr.7600000000000000121','<span dir="auto">Pito unsent a message</span>');fb.render('20002@msgr.7600000000000000122','<span dir="auto">Pito unsent a message</span>');});
+  await until(async()=>(await page.locator('[data-message-id="20002@msgr.7600000000000000121"]').innerText()).includes('PFF cặp A')&&(await page.locator('[data-message-id="20002@msgr.7600000000000000122"]').innerText()).includes('PFF cặp B'),'Two recalls in one batch were not paired with their own tombstones');
+  report.multiRecallPaired=true;
+
+  // 7. A second wrapper around ours (another tool) delivers the same batch twice: counted once.
+  const bridgeCount=async()=>(await ui.evaluate(async()=>{const [t]=await chrome.tabs.query({url:'https://www.facebook.com/*'});return chrome.tabs.sendMessage(t.id,{type:'tabStatus'});})).counters.bridgeMessages;
+  await sleep(1500);const before=await bridgeCount();
+  await page.evaluate(()=>{const ex=window.require('__debug').modulesMap.MAWBridgeUIEventHandler.exports,inner=ex.handleEvents;ex.handleEvents=function(r,e){return inner.call(this,r,e);};
+    fb.dispatch([{tag:'NewMsg',value:{msgId:'20002@msgr.7600000000000000031',chatJid:'20002@msgr',type_:'Text',content:fb.encode('PFF bọc hai lần'),sender:'20002',ts:1794401200}}]);});
+  await until(async()=>!!await record('msgr.7600000000000000031'),'rewrapped message');
+  await until(async()=>await bridgeCount()>before,'counter did not advance');await sleep(1500);
+  assert.equal(await bridgeCount()-before,1,'A batch that passes through two wrappers is observed once');
+  report.rewrapCountedOnce=true;
+
+  // 8. A photo row read from the page gains the sender and send time the data source saw.
+  await page.evaluate(()=>{fb.dispatch([{tag:'NewMsg',value:{msgId:'20002@msgr.7600000000000000041',chatJid:'20002@msgr',type_:'Image',sender:'20002',ts:1794401300}}]);
+    fb.render('20002@msgr.7600000000000000041','<span dir="auto">PFF chú thích ảnh</span>');});
+  await until(async()=>{const r=await record('msgr.7600000000000000041');return r?.senderId==='20002'&&r.sentAt===1794401300000;},'A row from the page did not gain sender and send time');
+  report.pageRowEnriched=true;
+
+  // 9. A group (not end-to-end encrypted) message: saved from the store procedure
+  // before any row exists; Messenger's call is untouched.
+  const stored=await page.evaluate(()=>fb.store('LSInsertMessage',{id:'mid.$gAAAAAnhom0001',text:'PFF tin nhóm',ts:1794402000000,sender:20003,reply:'PFF câu được trả lời'}));
+  assert.deepEqual(stored,{out:'store-LSInsertMessage',self:true,ctx:true,argc:61},'A store procedure must receive the same arguments, this and return value');
+  await until(async()=>{const r=await record('mid.$gAAAAAnhom0001');return r?.text==='PFF tin nhóm'&&r.senderId==='20003'&&r.sentAt===1794402000000&&r.replyText==='PFF câu được trả lời';},'A group message was not saved from the store procedure');
+  assert.equal(await page.locator('[data-message-id="mid.$gAAAAAnhom0001"]').count(),0);
+  // Recall keeps the ID and sets isUnsent; the same row then shows the saved text.
+  await page.evaluate(()=>{fb.store('LSDeleteThenInsertMessage',{id:'mid.$gAAAAAnhom0001',text:null,ts:1794402000000,sender:20003,unsent:true});fb.render('mid.$gAAAAAnhom0001','<span dir="auto">Pito unsent a message</span>');});
+  await until(async()=>!!(await record('mid.$gAAAAAnhom0001'))?.removedAt,'A group recall was not recorded');
+  await until(async()=>(await page.locator('[data-message-id="mid.$gAAAAAnhom0001"]').innerText()).includes('PFF tin nhóm'),'A recalled group message was not shown in its row');
+  // A message only present in Messenger's store (loaded earlier) is rescued at recall.
+  await page.evaluate(()=>{fb.rows.push({messageId:'mid.$gAAAAAnhom0002',text:'PFF nhóm lịch sử',senderId:fb.i64(20003),timestampMs:fb.i64(1794401900000),isUnsent:false});
+    fb.store('LSDeleteThenInsertMessage',{id:'mid.$gAAAAAnhom0002',text:null,ts:1794401900000,sender:20003,unsent:true});});
+  await until(async()=>{const r=await record('mid.$gAAAAAnhom0002');return r?.text==='PFF nhóm lịch sử'&&!!r.removedAt&&r.senderId==='20003';},'A group message known only to the store was not rescued');
+  // An unreadable procedure and an ID of another kind are passed through untouched.
+  assert.equal(await page.evaluate(()=>window.require('__debug').modulesMap.LSUpsertMessage.exports('x','y')),'odd-result');
+  assert.equal((await page.evaluate(()=>fb.store('LSInsertMessage',{id:'not-a-message-id',text:'PFF sai ID',ts:1794402100000,sender:20003}))).out,'store-LSInsertMessage');
+  await sleep(500);assert.equal((await records()).some(r=>r.text==='PFF sai ID'),false);
+  report.groupCapturedBeforeRender=true;report.groupRecallSameRow=true;report.groupRescued=true;report.unreadableProcedureLeftAlone=true;
+
   await rpc({type:'save',settings:{...(await rpc({type:'status'})).settings,bridgeCapture:false}});
   await sleep(500);
   await page.evaluate(()=>fb.dispatch([{tag:'NewMsg',value:{msgId:'20002@msgr.7600000000000000007',chatJid:'20002@msgr',type_:'Text',content:fb.encode('PFF khi tắt'),sender:'20002',ts:1794400900}}]));
@@ -127,9 +188,9 @@ try{
   assert.equal(await record('msgr.7600000000000000007'),undefined,'Switched off, the data source saves nothing');
   report.switchOff=true;
   const tab=await ui.evaluate(async()=>{const [t]=await chrome.tabs.query({url:'https://www.facebook.com/*'});return chrome.tabs.sendMessage(t.id,{type:'tabStatus'});});
-  assert.equal(tab.counters.bridgeActive,1);assert.ok(tab.counters.bridgeMessages>=5);assert.equal(tab.counters.bridgeRescued,1);assert.ok(tab.counters.bridgeRecalls>=3);
+  assert.equal(tab.counters.bridgeActive,1);assert.equal(tab.counters.storeActive,1);assert.ok(tab.counters.storeUnreadable>=1);assert.equal(tab.counters.bridgeErrors,0);assert.ok(tab.counters.bridgeMessages>=5);assert.equal(tab.counters.bridgeRescued,2);assert.ok(tab.counters.bridgeRecalls>=3);
   report.counters=tab.counters;
   assert.deepEqual(errors,[]);
   report.passed=true;await writeFile(path.join(root,'report.json'),JSON.stringify(report,null,2));
-  console.log('PASS data source: before render, unrendered chats, sender/time, recall→tombstone, rescue before delete, edit history, delete-for-me ignored, duplicates, switch, Facebook contract');
+  console.log('PASS data source: before render, unrendered chats, sender/time, recall→tombstone, multi-recall pairing, group chats (store procedures), rescue before delete, edit history, delete-for-me ignored, duplicates, switch, Facebook contract');
 }finally{await context.close();await rm(path.join(root,'profiles'),{recursive:true,force:true,maxRetries:5,retryDelay:200}).catch(()=>{});}

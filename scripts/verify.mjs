@@ -38,5 +38,6 @@ await run("Preferences persistence, concurrent views, startup and new UI", "test
 await run("Bilingual UI, persisted language and Pito branding", "tests/i18n-browser.mjs", existsSync(current)?{PFF_TEST_BROWSER:current}:{});
 await run("Backups, password lock, sender details, new media kinds and retries", "tests/features-browser.mjs", existsSync(current)?{PFF_TEST_BROWSER:current}:{});
 await run("Capture stays complete under scroll and observer limits", "tests/adapter-browser.mjs", existsSync(current)?{PFF_TEST_BROWSER:current}:{});
+await run("Encrypted chats from Messenger's data layer: capture, recall pairing, rescue, contract", "tests/bridge-browser.mjs", existsSync(current)?{PFF_TEST_BROWSER:current}:{});
 await run("Actual toolbar popup sizing and autosave", "tests/popup-action.mjs", existsSync(current)?{PFF_TEST_BROWSER:current}:{});
 console.log("\n[VERIFY] All automated checks passed. Production Facebook QA remains a separate requirement.");

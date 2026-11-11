@@ -21,7 +21,8 @@ test("a new capture is sealed at rest; no plaintext, digest or names reach the d
   assert.equal(decoded(row.data).includes("Bí mật"), false); assert.equal(row.digest, ""); assert.ok(row.seal.w.byteLength >= 256);
   assert.equal(row.meta, undefined); assert.equal(row.assets[0].name, undefined);
   const stored = decoded(new Uint8Array(await row.assets[0].blob.arrayBuffer()));
-  assert.equal(stored.includes("PNG"), false);
+  // The whole 8-byte signature: three letters alone turn up by chance in 600 KB of ciphertext.
+  assert.equal(stored.includes("PNG\r\n\x1a\n"), false);
   const rows = (await db.list({ state: "all" })).rows;
   assert.equal(rows[0].text, "Bí mật tuyệt đối"); assert.equal(rows[0].senderName, "Người gửi bí mật"); assert.equal(rows[0].replyText, "Trích dẫn bí mật"); assert.equal(rows[0].assets[0].name, "bao-cao-mat.pdf");
 });

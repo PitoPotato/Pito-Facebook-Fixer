@@ -18,7 +18,7 @@ const retryKey = item => `${item.account}|${item.id}`;
   const counters = { messagesObserved: 0, tombstonesObserved: 0, unidentifiedRows: 0,
     storyBlocked: 0, focusBlocked: 0, reloadSignalsBlocked: 0, navigationsBlocked: 0, queueDropped: 0,
     missingAccount: 0, missingMessageId: 0, missingThread: 0, missingText: 0, adapterErrors: 0, voiceAutoLoaded:0,voiceAutoFailed:0,
-    bridgeActive: 0, bridgeMessages: 0, bridgeRescued: 0, bridgeRecalls: 0, bridgeErrors: 0 };
+    bridgeActive: 0, bridgeMessages: 0, bridgeRescued: 0, bridgeRecalls: 0, bridgeErrors: 0, storeActive: 0, storeUnreadable: 0 };
   let statusTimer;
   let sentItems=[],policySerial=0,retryGroups=[],retryGeneration=0;const policyRequests=new Map();
   const send = (type, data) => window.postMessage({ channel: CHANNEL, direction: "page", type, ...data }, location.origin);
@@ -98,12 +98,19 @@ const retryKey = item => `${item.account}|${item.id}`;
     queue.push(item); if (!flushTimer && !inFlight) flushTimer = setTimeout(flush, 0);
     return true;
   };
-  const adapter = installMessageAdapter(() => config, accept, count);
+  // A row read from the page gains the sender and send time the data source saw.
+  let bridge = null;
+  const enrich = item => {
+    const known = !item.removed && bridge?.details(item.id);
+    if (known) { if (!item.senderId && known.senderId) item.senderId = known.senderId; if (!item.sentAt && known.sentAt) item.sentAt = known.sentAt; }
+    return item;
+  };
+  const adapter = installMessageAdapter(() => config, item => accept(enrich(item)), count);
   // Messenger can deliver decrypted messages before the settings arrive; hold a
   // bounded number until then instead of dropping them.
   let early = [];
   const bridgeOn = () => config.archive && config.bridgeCapture !== false;
-  installBridgeAdapter(() => configured ? config : { archive: true, bridgeCapture: true }, item => {
+  bridge = installBridgeAdapter(() => configured ? config : { archive: true, bridgeCapture: true }, item => {
     if (!configured) { if (early.length >= 256) return false; early.push(item); return true; }
     return bridgeOn() ? accept(item) : false;
   }, count);

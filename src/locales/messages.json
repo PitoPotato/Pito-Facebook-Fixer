@@ -40,6 +40,8 @@
   "metricVoiceSaved":{"en":"Voice notes downloaded silently","vi":"Voice đã tự tải, không phát"},
   "metricVoiceFailed":{"en":"Automatic voice downloads failed","vi":"Voice tự tải thất bại"},
   "metricBridgeActive":{"en":"Encrypted-chat data source connected","vi":"Đã kết nối nguồn dữ liệu chat mã hóa"},
+  "metricStoreActive":{"en":"Group and regular-chat data source connected","vi":"Đã kết nối nguồn dữ liệu chat nhóm và chat thường"},
+  "metricStoreUnreadable":{"en":"Data source parts that could not be read","vi":"Phần nguồn dữ liệu không đọc được"},
   "metricBridgeMessages":{"en":"Messages from the data source","vi":"Tin từ nguồn dữ liệu"},
   "metricBridgeRescued":{"en":"Messages rescued just before recall","vi":"Tin cứu được ngay trước khi thu hồi"},
   "metricBridgeRecalls":{"en":"Recalls from the data source","vi":"Thu hồi từ nguồn dữ liệu"},
