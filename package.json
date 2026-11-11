@@ -10,6 +10,7 @@
     "test:bulk": "node tests/bulk.mjs",
     "test:media": "node tests/media-browser.mjs",
     "test:viewer": "node tests/viewer-browser.mjs",
+    "test:bridge": "node tests/bridge-browser.mjs",
     "test:popup": "node tests/popup-action.mjs",
     "check": "npm run test && npm run build && npm run test:browser",
     "verify": "node scripts/verify.mjs",

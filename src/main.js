@@ -1,6 +1,7 @@
 import { CHANNEL, DEFAULTS, MAX_BATCH, accountId } from "./shared.js";
 import { installFocusGuard, installReloadGuard } from "./guards.js";
 import { installMessageAdapter } from "./adapter.js";
+import { installBridgeAdapter } from "./bridge.js";
 import {installVoiceCapture,releaseVoicePayloads} from './media-dom.js';
 import {readBlobMedia,assetLimit,MAX_MESSAGE_MEDIA_BYTES} from './media.js';
 
@@ -16,7 +17,8 @@ const retryKey = item => `${item.account}|${item.id}`;
   let config = Object.fromEntries(Object.entries(DEFAULTS).map(([key,value])=>[key,typeof value==='boolean'?false:value])), configured = false, queue = [], flushTimer = null, inFlight = null, batchSerial = 0, captureController = null;
   const counters = { messagesObserved: 0, tombstonesObserved: 0, unidentifiedRows: 0,
     storyBlocked: 0, focusBlocked: 0, reloadSignalsBlocked: 0, navigationsBlocked: 0, queueDropped: 0,
-    missingAccount: 0, missingMessageId: 0, missingThread: 0, missingText: 0, adapterErrors: 0, voiceAutoLoaded:0,voiceAutoFailed:0 };
+    missingAccount: 0, missingMessageId: 0, missingThread: 0, missingText: 0, adapterErrors: 0, voiceAutoLoaded:0,voiceAutoFailed:0,
+    bridgeActive: 0, bridgeMessages: 0, bridgeRescued: 0, bridgeRecalls: 0, bridgeErrors: 0 };
   let statusTimer;
   let sentItems=[],policySerial=0,retryGroups=[],retryGeneration=0;const policyRequests=new Map();
   const send = (type, data) => window.postMessage({ channel: CHANNEL, direction: "page", type, ...data }, location.origin);
@@ -81,7 +83,7 @@ const retryKey = item => `${item.account}|${item.id}`;
     }
     if(inFlight===batchId&&config.archive){sentItems=items;send("observations", { batchId, items, account:accountId() });}
   }
-  const adapter = installMessageAdapter(() => config, item => {
+  const accept = item => {
     const group = retryGroups.find(candidate => candidate.keys.has(retryKey(item)));
     if (group) {
       if (group.items.length >= MAX_RETRY_ITEMS) return false;
@@ -95,13 +97,31 @@ const retryKey = item => `${item.account}|${item.id}`;
     if (queue.length >= 128) return false;
     queue.push(item); if (!flushTimer && !inFlight) flushTimer = setTimeout(flush, 0);
     return true;
+  };
+  const adapter = installMessageAdapter(() => config, accept, count);
+  // Messenger can deliver decrypted messages before the settings arrive; hold a
+  // bounded number until then instead of dropping them.
+  let early = [];
+  const bridgeOn = () => config.archive && config.bridgeCapture !== false;
+  installBridgeAdapter(() => configured ? config : { archive: true, bridgeCapture: true }, item => {
+    if (!configured) { if (early.length >= 256) return false; early.push(item); return true; }
+    return bridgeOn() ? accept(item) : false;
   }, count);
+  // A recall committed by the data source names the tombstone that replaces the
+  // message; a row already showing it is read again so the saved copy appears.
+  function recheck(batch) {
+    for (const item of batch) {
+      if (!item.recheck) continue;
+      const row = document.querySelector(`[data-message-id="${CSS.escape(item.recheck)}"],[data-mid="${CSS.escape(item.recheck)}"]`);
+      if (row) adapter.mediaChanged(row);
+    }
+  }
   window.addEventListener("message", event => {
     const data = event.data;
     if (event.source !== window || event.origin !== location.origin || data?.channel !== CHANNEL || data.direction !== "extension") return;
     if (data.type === "observationsAck" && data.batchId === inFlight) {
       const batch=sentItems;sentItems=[];inFlight=null;
-      if(data.failed===true)scheduleRetry(batch);else releaseVoicePayloads(batch);
+      if(data.failed===true)scheduleRetry(batch);else {releaseVoicePayloads(batch);recheck(batch);}
       if (queue.length && !flushTimer) flushTimer = setTimeout(flush, 0);
       return;
     }
@@ -114,6 +134,8 @@ const retryKey = item => `${item.account}|${item.id}`;
       const previousArchive = config.archive;
       for (const key of Object.keys(DEFAULTS)) if (typeof data.settings[key] === typeof DEFAULTS[key]) config[key] = data.settings[key];
       configured = true;
+      const held = early; early = [];
+      if (bridgeOn()) for (const item of held) accept(item);
       if (!config.archive) { releaseVoicePayloads([...queue,...sentItems]);sentItems=[];queue = []; inFlight = null; captureController?.abort();cancelRetries();adapter.reset(); }
       else if (firstConfiguration || !previousArchive || data.rescan) adapter.rescan();
       if (queue.length && !flushTimer) flushTimer = setTimeout(flush, 0);

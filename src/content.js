@@ -244,7 +244,7 @@ import {tr,localeFor} from './i18n.js';
       status.connected = true; status.configured = data.configured === true;
       status.appliedSettingsRevision=Number.isSafeInteger(data.settingsRevision)?data.settingsRevision:-1;
       const clean = {};
-      for (const key of ["messagesObserved", "tombstonesObserved", "unidentifiedRows", "storyBlocked", "focusBlocked", "reloadSignalsBlocked", "navigationsBlocked", "queueDropped", "missingAccount", "missingMessageId", "missingThread", "missingText", "adapterErrors", "voiceAutoLoaded", "voiceAutoFailed"]) {
+      for (const key of ["messagesObserved", "tombstonesObserved", "unidentifiedRows", "storyBlocked", "focusBlocked", "reloadSignalsBlocked", "navigationsBlocked", "queueDropped", "missingAccount", "missingMessageId", "missingThread", "missingText", "adapterErrors", "voiceAutoLoaded", "voiceAutoFailed", "bridgeActive", "bridgeMessages", "bridgeRescued", "bridgeRecalls", "bridgeErrors"]) {
         clean[key] = Number.isSafeInteger(data.counters?.[key]) ? data.counters[key] : 0;
       }
       status.counters = clean;

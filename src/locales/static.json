@@ -283,6 +283,14 @@
     "en": "Try to save visible voice notes without playing them. Notes recalled before the download finishes may still be lost.",
     "vi": "Thử tải voice đang hiển thị mà không phát tiếng. Tệp chưa tải xong vẫn có thể bị mất khi thu hồi."
   },
+  "bridgeCapture": {
+    "en": "Read encrypted chats from Messenger's data (experimental)",
+    "vi": "Đọc chat mã hóa từ dữ liệu của Messenger (thử nghiệm)"
+  },
+  "bridgeCaptureHelp": {
+    "en": "Saves messages as Messenger decrypts them, before they appear and in chats that aren't open, and keeps sender and send time. Only reads; turn off if Messenger behaves oddly.",
+    "vi": "Lưu tin ngay khi Messenger giải mã, trước khi hiện ra và cả ở đoạn chat chưa mở, kèm người gửi và giờ gửi. Chỉ đọc; tắt nếu Messenger hoạt động bất thường."
+  },
   "cleanupTitle": {
     "en": "Clean up on your terms",
     "vi": "Dọn theo nhu cầu"
