@@ -1,6 +1,31 @@
 # PitoFacebookFixer
 
-Extension Manifest V3 cho Chrome/Edge trên máy tính. Bản thử nghiệm 0.3.0.
+Extension Manifest V3 cho Chrome/Edge trên máy tính. Bản thử nghiệm 0.3.1.
+
+## Bản 0.3.1: ảnh thu hồi hiện lại tại chỗ, phóng to và chuyển ảnh
+
+Kết quả kiểm thử: mục đầu của [TEST_RESULTS.md](TEST_RESULTS.md). Cập nhật từ 0.3.0: bấm Reload extension ở `chrome://extensions` (thư mục `dist` sau `npm run build`), rồi tải lại tab Facebook. Kho giữ nguyên.
+
+**Lỗi đã sửa.** Ảnh đã lưu của tin bị thu hồi có thể chỉ hiện dòng chữ *“Ảnh đã thu hồi — bản lưu trên máy”* thay cho ảnh. Đó là chữ thay thế của khung ảnh khi dữ liệu ảnh chưa tải xong. Đã tái hiện được hai nguyên nhân, cả hai bằng dữ liệu tổng hợp:
+
+- Một lần đọc kho lỗi tạm thời (worker bận, đang khởi động lại) làm ảnh bị đánh dấu hỏng vĩnh viễn, không thử lại. Nay mỗi phần 192 KiB được thử lại 3 lần (0,3 s, 1 s, 3 s). Lỗi thật (tệp đã bị dọn, kho đang khóa) hiện ô *Nhấn để thử lại* thay vì chữ thay thế.
+- Khi Facebook vẽ lại bong bóng thu hồi, phần ảnh bị xóa và đọc lại từ phần đầu tiên. Ảnh lớn có thể không bao giờ tải xong. Nay một tệp chỉ đọc một lần cho mọi chỗ hiển thị nó; bong bóng vẽ lại dùng tiếp lượt đọc đang chạy hoặc ảnh đã tải.
+- Đọc tệp đã lưu không còn phải xếp hàng sau các lượt ghi. Trước đây mỗi phần ảnh phải chờ các lượt lưu tin, và mỗi lượt có thể tải media từ CDN trong nhiều giây.
+
+**Hiển thị mới**
+
+- Mọi ảnh của tin hiện **ngay trong bong bóng thu hồi**, dạng lưới như Messenger: 1 ảnh giữ đúng tỉ lệ; 2 và 4 ảnh xếp 2 cột; còn lại 3 cột. Tối đa 6 ô, ô cuối ghi *+N* nếu còn ảnh. Trong lúc tải, ô hiện nền chờ thay vì chữ thay thế.
+- Nhấn một ảnh để mở **trình xem toàn màn hình**:
+  - Phóng to bằng nút +/−, con lăn chuột (giữ nguyên điểm dưới con trỏ), chụm hai ngón, phím `+` `-` `0`, hoặc nhấn vào ảnh (2,5×; nhấn lần nữa để thu về). Khi đã phóng to, kéo để di chuyển.
+  - Chuyển ảnh bằng nút ‹ ›, phím ← → Home End, dải ảnh nhỏ bên dưới, hoặc vuốt/kéo ngang khi chưa phóng to. Mỗi lần chuyển ảnh, mức phóng to trở về vừa màn hình.
+  - Nút tải ảnh về máy. Đóng bằng Esc, nút ×, hoặc nhấn vùng tối quanh ảnh; focus quay lại ảnh vừa mở.
+- Trình xem nằm trên lớp cao nhất của trang và trong shadow DOM, nên CSS và phím tắt của Facebook không tác động tới nó. Nhấn ảnh không lan xuống hàng tin của Facebook.
+- Video, voice và tệp vẫn hiển thị trong bong bóng như trước.
+- Tắt lưu trữ, khóa kho, xóa kho hoặc đổi tài khoản sẽ đóng trình xem và thu hồi mọi URL ảnh.
+- Trang *Bản lưu* của extension dùng cùng lưới và trình xem.
+- Bộ nhớ: ảnh rời khỏi màn hình được giữ tối đa 24 MiB để quay lại nhanh, cũ nhất bị bỏ trước. Ảnh đang hiển thị tối đa 64 MiB; vẫn chỉ 2 lượt đọc cùng lúc.
+
+**Chưa thử trên Facebook thật.** Bản sửa mới chỉ qua dữ liệu tổng hợp, chưa thử với tin nhận từ tài khoản khác.
 
 ## Bản 0.3.0: kho an toàn hơn, sao lưu, khóa mật khẩu và nhẹ hơn
 
@@ -213,6 +238,8 @@ Khi gặp lỗi quota, thử dọn thêm và ghi lại một lần; lỗi còn t
 
 Extension thay chữ “đã thu hồi/xóa một tin nhắn” bằng nội dung đã ghi, ngay trong bong bóng viền/chữ nghiêng sẵn có của Facebook. Không có hộp riêng. Tooltip khi rê chuột ghi nguồn bản lưu và thời điểm lưu; thông tin đầy đủ của bản ghi vẫn có trong trang cài đặt extension.
 
+Ảnh đã lưu hiện thành lưới ngay trong bong bóng đó. Nhấn một ảnh để mở trình xem toàn màn hình: phóng to, kéo và chuyển giữa các ảnh của cùng tin. Video, voice và tệp hiện bên dưới lưới. Phần hiển thị media nằm trong shadow DOM, nên không bị tính là nội dung tin và CSS của Facebook không tác động tới nó.
+
 “Phát hiện thu hồi” là thời điểm extension quan sát được, không nhất thiết là thời điểm chính xác người gửi nhấn thu hồi. Tải lại trang vẫn có thể phục hồi nếu Facebook còn cung cấp đúng ID và kho chưa dọn bản tin đó. Nếu không nhận diện được ID hoặc vùng chữ thu hồi rõ ràng, extension bỏ qua thay vì đoán theo nội dung/vị trí hoặc thay cả hàng chat.
 
 ## Dữ liệu và quyền
@@ -262,7 +289,8 @@ Quy trình kiểm tra thực tế sau khi cài:
 - `src/vault.js`, `src/keys.js`: khóa bằng mật khẩu và nơi giữ khóa trong phiên.
 - `src/backup.js`: định dạng tệp sao lưu mã hóa, xuất và nhập.
 - `src/adapter.js`: đọc hàng tin nhắn từ DOM/props React với ID ổn định.
-- `src/media.js`, `src/media-dom.js`, `src/media-render.js`: kiểm tra loại/giới hạn tệp, emoji, tải voice không phát và hiển thị binary/album từ kho.
+- `src/media.js`, `src/media-dom.js`: kiểm tra loại/giới hạn tệp, emoji, tải voice không phát.
+- `src/media-render.js`: đọc tệp từ kho (thử lại, dùng chung một lượt đọc cho mọi chỗ hiển thị), lưới ảnh trong bong bóng, trình xem phóng to/chuyển ảnh.
 - `src/guards.js`: giữ focus và hạn chế tự làm mới.
 - `src/protocol.js`: nhận diện request story dành cho nghiên cứu/hồi quy; hiện không nối vào hook runtime.
 - `src/main.js`: các hook chạy trong MAIN world từ document_start.

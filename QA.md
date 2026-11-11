@@ -4,6 +4,29 @@ Kết quả bản 0.3.0: [TEST_RESULTS.md](TEST_RESULTS.md). Kiểm thử hai t�
 
 Không dùng Chrome cá nhân của người dùng, kể cả chỉ để xem tài khoản đang đăng nhập. Lượt 0.3.0 có một lần lệch quy định này, được ghi lại trong TEST_RESULTS.
 
+## Hồi quy 0.3.1 — ảnh thu hồi tại chỗ, phóng to và chuyển ảnh
+
+Lỗi gốc: bong bóng thu hồi chỉ hiện chữ thay thế *“Recalled photo — saved on this device”* của khung ảnh. Đã tái hiện bằng dữ liệu tổng hợp với hai nguyên nhân: (1) một lần đọc kho trả `errBusy` thì ảnh không bao giờ được thử lại; (2) Facebook vẽ lại bong bóng thì ảnh bị tạo lại và đọc lại từ phần đầu. Với mã cũ, khung ảnh không bao giờ tải xong trong cả hai trường hợp; không có lỗi nào thì ảnh vẫn tải bình thường.
+
+`npm run test:viewer` (`tests/viewer-browser.mjs`, có trong `verify`) dùng profile mới, HTTP bị chặn, tin nhận từ “Pito” với album 7 ảnh JPEG 1600×1200 có số in trên ảnh, một ảnh dọc và một tin chữ:
+
+- Worker trả `errBusy` cho 2 lần đọc đầu; bong bóng bị thay phần chữ thu hồi 10 lần trong lúc ảnh đang tải. Cả 6 ô và ảnh dọc phải tải xong. Tổng số lần đọc kho không vượt số phần cần đọc cộng số lần lỗi, tức không đọc lại từ đầu. Không có chữ thay thế nào hiện trong cuộc trò chuyện.
+- Lưới: 6 ô và ô cuối ghi “+1”; ảnh đơn giữ đúng tỉ lệ dọc, cao tối đa 320 px.
+- Nhấn ảnh không lan xuống hàng tin, kiểm bằng bộ đếm click của trang.
+- Trình xem: kiểm từng ảnh theo SHA-256 sau mỗi lần chuyển bằng nút, ← →, Home/End, dải ảnh nhỏ và vuốt ngang. Ở hai đầu, nút chuyển bị vô hiệu nhưng phím vẫn dùng được. Thử 60 lần nhấn phím liên tiếp.
+- Phóng to: nút (125%), con lăn tại vị trí con trỏ, kéo để di chuyển (kéo khi đã phóng to không chuyển ảnh), nhấn ảnh (250%, nhấn lần nữa về 100%), phím `+` `-` `0`; chuyển ảnh thì trở về vừa màn hình.
+- Tải ảnh về: tên `pitofacebookfixer-photo-N.jpg`, đúng từng byte.
+- Đổi sang tiếng Việt khi trình xem đang mở: nhãn nút, gợi ý và nhãn ô đổi theo.
+- Esc đóng trình xem, focus trở lại ô ảnh vừa mở. Ảnh đơn không có nút chuyển hay dải ảnh nhỏ; nhấn vùng tối thì đóng.
+- Tắt lưu trữ khi trình xem đang mở: trình xem đóng, mọi URL ảnh bị thu hồi (`fetch` thất bại). Bật lại thì ảnh hiện lại.
+- Ảnh chụp: `test-results/viewer-browser/bubble.png`, `viewer.png`, `viewer-zoomed.png`; báo cáo `report.json`.
+
+`tests/background.test.js` có thêm: khi 3 lượt lưu đang giữ hàng đợi ghi vì chờ CDN, 26 lần đọc phần ảnh cùng lúc phải trả về trong 2 s, không lỗi và đủ byte. Bài này thất bại trên `background.js` của 0.3.0 (*reading a saved file waited for the capture*).
+
+`tests/storage-browser.mjs` đổi theo giao diện mới: album 2 ảnh hiện cả 2 ô trong bong bóng; chuyển ảnh và 30 lần chuyển nhanh được thử trong trình xem.
+
+**Chưa kiểm:** Facebook thật, tin nhận từ tài khoản khác, ảnh thật chụp bằng điện thoại. Theo [Tầng 3](#tầng-3-facebook-thật-tài-khoản-thử-nghiệm-riêng), cần một tài khoản gửi thử riêng để kiểm tin nhận.
+
 ## Hồi quy 0.3.0 — kho, sao lưu, khóa, media mới và hiệu năng
 
 Unit test (`npm test`, 98 test): `archive`, `media`, `vault`, `backup`, `adapter`, `background`, `i18n`, `protocol`, `sender` và `review`, `review2`, `review3` (hồi quy cho lỗi do kiểm tra độc lập tìm ra). Trọng tâm:

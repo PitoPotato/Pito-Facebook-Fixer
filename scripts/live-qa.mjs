@@ -47,14 +47,14 @@ await fb.locator('[contenteditable="true"][role="textbox"]').waitFor({state:'vis
 } catch(error) { startupError=error.message; }
 const rpc=async message=>{const result=await ui.evaluate(async m=>chrome.runtime.sendMessage(m),message);if(!result?.ok)throw Error(result?.error||'RPC failed');return result;};
 const source=(await rpc({type:'status'})).sourceBuild;
-if(source!=='0.3.0-archive-v1')throw Error('QA extension worker does not match the current source build');
+if(source!=='0.3.1-archive-v1')throw Error('QA extension worker does not match the current source build');
 let current=null, mobileMessages=[];
 const persistedMobileEvents=[];
 await fb.exposeBinding('__pffRecordMobileAudit',(_source,events)=>{
   for(const event of events)if(persistedMobileEvents.length<6000)persistedMobileEvents.push(event);
 });
 const report={primaryFacebookUsed:false,profileIsolated:true,browserVersion:context.browser().version(),cycles:[]};
-const reportDir=path.resolve('test-results/live-qa-0.3.0');await mkdir(reportDir,{recursive:true});
+const reportDir=path.resolve('test-results/live-qa-0.3.1');await mkdir(reportDir,{recursive:true});
 const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function waitFor(check,message){for(let n=0;n<60;n++){if(await check())return;await delay(200);}throw Error(message);}
 async function account(){const cookies=await context.cookies('https://www.facebook.com/');const id=cookies.find(c=>c.name==='c_user')?.value;if(!/^\d+$/.test(id||''))throw Error('Test account is not signed in');return id;}

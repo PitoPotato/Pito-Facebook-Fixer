@@ -5,7 +5,7 @@ import {MAX_ASSETS,MAX_MESSAGE_MEDIA_BYTES,MAX_VIDEO_BYTES,UPLOAD_CHUNK_BYTES,as
 import { sessionKeys } from "./keys.js";
 
 const archive = new Archive(undefined, sessionKeys);
-const SOURCE_BUILD = "0.3.0-archive-v1";
+const SOURCE_BUILD = "0.3.1-archive-v1";
 const UPLOAD_TTL = 60000, MAX_UPLOAD_BUFFER = 96 * 1024 * 1024;
 let chain = Promise.resolve(), pending = 0;
 const uploads = new Map();
@@ -211,7 +211,10 @@ async function dispatch(message, sender) {
   }
 }
 // These only read, or take the queue themselves around the part that needs it.
-const OWN_QUEUEING = new Set(["config", "assetUpload", "assetUploadDiscard", "capturePolicy", "status", "save"]);
+// Reading a saved file must not wait behind captures (each can fetch media for
+// seconds) or fail because the queue is full: a photo being shown is read in
+// many pieces, and IndexedDB keeps each piece consistent on its own.
+const OWN_QUEUEING = new Set(["config", "assetUpload", "assetUploadDiscard", "capturePolicy", "status", "save", "asset"]);
 const RPC_TYPES = ["config", "observe", "status", "save", "list", "clear", "asset", "capturePolicy", "purgeMedia", "assetUpload", "assetUploadDiscard", "vaultStatus", "vaultEnable", "vaultUnlock", "vaultLock", "vaultDisable", "vaultMigrate", "archiveImported"];
 chrome.runtime.onMessage.addListener((message, sender, respond) => {
   // Notifications sent to other extension views are not RPC requests. Ignoring

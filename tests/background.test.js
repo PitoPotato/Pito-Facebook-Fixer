@@ -135,6 +135,28 @@ test('the password lock is available through the owner page, with the key kept i
   assert.equal(last.vault.enabled,false);
 });
 
+test('a recalled photo is read while a capture holds the write queue fetching media',async()=>{
+  const {id}=await upload(png);await rpc({type:'observe',items:[media('mid.read-while-busy',id)]});
+  assert.equal((await rpc({type:'observe',items:[{account:'10001',thread:'20002',id:'mid.read-while-busy',token:'pff-12',removed:true}]})).restored.length,1);
+  const realFetch=globalThis.fetch;let release;const gate=new Promise(resolve=>{release=resolve;});
+  globalThis.fetch=async()=>{await gate;return new Response(png.subarray(0,5000));};
+  // Captures that wait on a slow CDN while holding the queue, as real ones can for seconds.
+  const busy=Array.from({length:3},(_,n)=>rpc({type:'observe',items:[{account:'10001',thread:'20002',id:`mid.slow${n}`,token:'pff-13',text:'',media:[{kind:'image',url:`https://a.fbcdn.net/v/slow${n}.png`,position:0}]}]}));
+  try{
+    // Every piece of the photo twice (a bubble and the viewer), more requests at
+    // once than the write queue would accept.
+    const pieces=Math.ceil(png.length/(192*1024));
+    const reads=Array.from({length:pieces*2},(_,n)=>rpc({type:'asset',account:'10001',thread:'20002',id:'mid.read-while-busy',index:0,offset:(n%pieces)*192*1024}));
+    assert.ok(reads.length>16);
+    const results=await Promise.race([Promise.all(reads),new Promise(resolve=>setTimeout(()=>resolve('waiting'),2000))]);
+    assert.notEqual(results,'waiting','reading a saved file waited for the capture');
+    assert.deepEqual(results.map(result=>result.error),results.map(()=>undefined),'a read failed while the queue was busy');
+    assert.equal(results.reduce((sum,result)=>sum+Buffer.from(result.data,'base64').length,0),png.length*2);
+  }finally{
+    release();for(const result of await Promise.all(busy))assert.equal(result.ok,true);
+    globalThis.fetch=realFetch;
+  }
+});
 test('a CDN file already saved is not fetched again, even when its signed URL changes',async()=>{
   const realFetch=globalThis.fetch;let fetches=0;
   globalThis.fetch=async()=>{fetches++;return new Response(png.subarray(0,5000));};

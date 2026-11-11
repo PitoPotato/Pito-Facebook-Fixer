@@ -35,18 +35,24 @@ try{
   assert.equal(await page.evaluate(()=>qaClicks),0,'Already archived voice must not be downloaded again after reload');
   await page.evaluate(()=>{for(const row of document.querySelectorAll('[data-message-id]'))row.innerHTML='<span dir="auto">You deleted a message</span>';});
   await until(async()=>await page.locator('[data-pff-restored]').count()===3,'All native bubbles must be restored');
+  // Both photos of the album show in the bubble; the viewer switches between them.
   const album=page.locator('[data-message-id="mid.album"]'),img=album.locator('[data-pff-media] img');
-  assert.equal(await img.count(),1);await until(async()=>img.evaluate(n=>n.complete&&n.naturalWidth>0),'First gallery photo did not load');
-  const hash=()=>img.evaluate(async n=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',await(await fetch(n.src)).arrayBuffer())),b=>b.toString(16).padStart(2,'0')).join(''));
+  assert.equal(await img.count(),2);await until(async()=>img.evaluateAll(nodes=>nodes.every(n=>n.complete&&n.naturalWidth>0)),'Album photos did not load');
+  const hash=locator=>locator.evaluate(async n=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',await(await fetch(n.src)).arrayBuffer())),b=>b.toString(16).padStart(2,'0')).join(''));
   const digest=b=>crypto.subtle.digest('SHA-256',b).then(b=>Buffer.from(b).toString('hex'));
-  assert.equal(await hash(),await digest(images[0]));await album.getByRole('button',{name:'Ảnh sau',exact:true}).click();
-  await until(async()=>img.getAttribute('src').then(Boolean),'Next gallery photo did not load');assert.equal(await hash(),await digest(images[1]));
-  await album.evaluate(row=>{for(let i=0;i<30;i++){row.querySelector('[aria-label="Ảnh trước"]').click();row.querySelector('[aria-label="Ảnh sau"]').click();}});
-  await until(async()=>!!await img.getAttribute('src'),'Rapid gallery switching stalled');assert.equal(await hash(),await digest(images[1]));assert.equal(await img.count(),1);
+  assert.equal(await hash(img.nth(0)),await digest(images[0]));assert.equal(await hash(img.nth(1)),await digest(images[1]));
+  await album.getByRole('button',{name:'Xem ảnh 1 trên 2',exact:true}).click();
+  const photo=page.locator('[data-pff-viewer-photo]'),loaded=()=>photo.evaluate(n=>!!n.getAttribute('src')&&n.complete&&n.naturalWidth>0);
+  await until(loaded,'Viewer did not show the first photo');assert.equal(await hash(photo),await digest(images[0]));
+  await page.getByRole('button',{name:'Ảnh sau',exact:true}).click();
+  await until(async()=>(await page.locator('[data-pff-viewer] .counter').innerText())==='2 / 2'&&await loaded(),'Next photo did not load in the viewer');assert.equal(await hash(photo),await digest(images[1]));
+  await page.locator('[data-pff-viewer]').evaluate(host=>{const r=host.shadowRoot;for(let i=0;i<30;i++){r.querySelector('[data-pff-viewer-action="previous"]').click();r.querySelector('[data-pff-viewer-action="next"]').click();}});
+  await until(loaded,'Rapid gallery switching stalled');assert.equal(await hash(photo),await digest(images[1]));
+  await page.keyboard.press('Escape');await until(async()=>await page.locator('[data-pff-viewer]').count()===0,'Viewer did not close');
   const audio=page.locator('[data-pff-media] audio');await until(async()=>audio.evaluate(n=>n.readyState>=1),'Unplayed archived voice did not decode');
   await audio.evaluate(n=>n.play());await until(async()=>audio.evaluate(n=>n.currentTime>0),'Unplayed voice archive cannot play');await audio.evaluate(n=>n.pause());
   removed=true;await page.reload();await until(async()=>page.locator('[data-pff-restored]').count().then(n=>n===3),'Reload lost archived album/voice');
-  await until(async()=>page.locator('[data-pff-media] img').evaluate(n=>n.complete&&n.naturalWidth>0),'Reloaded gallery not decoded');
+  await until(async()=>page.locator('[data-pff-media] img').evaluateAll(nodes=>nodes.length===2&&nodes.every(n=>n.complete&&n.naturalWidth>0)),'Reloaded gallery not decoded');
   await ui.reload();await ui.locator('#requestImages').click();await ui.locator('#confirmPurge').click();
   await until(async()=>ui.locator('#purgeFeedback').innerText().then(t=>t.includes('Đã dọn 0 tệp')),'Default manual purge touched protected media');
   await ui.locator('#purgeRemoved').check();await ui.locator('#confirmPurge').click();
@@ -58,6 +64,6 @@ try{
   await until(async()=>page.locator('[data-pff-media] audio').count().then(n=>n===0),'Purged voice remained displayed');
   await until(async()=>page.locator('#log').innerText().then(t=>t.includes('Văn bản QA')),'Selective cleanup lost text restoration');
   assert.match(await page.locator('#log').innerText(),/Văn bản QA/);assert.equal((await rpc({type:'status'})).stats.count,3);assert.deepEqual(errors,[]);
-  const report={synthetic:true,primaryFacebookUsed:false,automaticVoiceWithoutPlayback:true,alreadyArchivedVoiceNotDownloadedAgain:true,customSettingsPersisted:true,singleImageGallery:true,rapidSwitching:true,reload:true,separateCleanup:true,protectedMediaSkippedByDefault:true,passed:true};
+  const report={synthetic:true,primaryFacebookUsed:false,automaticVoiceWithoutPlayback:true,alreadyArchivedVoiceNotDownloadedAgain:true,customSettingsPersisted:true,albumGrid:true,viewerSwitching:true,rapidSwitching:true,reload:true,separateCleanup:true,protectedMediaSkippedByDefault:true,passed:true};
   await writeFile('test-results/storage-browser-report.json',JSON.stringify(report,null,2));console.log('PASS storage controls, protected media, selective cleanup, rapid gallery switching and automatic voice without playback (synthetic)');
 }finally{await context.close();}

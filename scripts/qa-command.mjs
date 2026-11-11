@@ -1,5 +1,5 @@
 import {readFile} from 'node:fs/promises';
-const control=JSON.parse(await readFile('test-results/live-qa-0.3.0/control.json','utf8'));
+const control=JSON.parse(await readFile('test-results/live-qa-0.3.1/control.json','utf8'));
 const [op,value]=process.argv.slice(2);const command={op};
 if(op==='adopt')command.text=value;
 if(op==='media-unsend')command.kind=value;

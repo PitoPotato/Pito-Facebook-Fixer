@@ -1,3 +1,35 @@
+# Kết quả kiểm thử 0.3.1 — ảnh thu hồi tại chỗ, phóng to và chuyển ảnh
+
+Ngày: 11/11/2026. Source build: `0.3.1-archive-v1`. Chỉ dùng dữ liệu tổng hợp, profile mới, HTTP bị chặn. **Chưa thử trên Facebook thật.**
+
+**Tái hiện lỗi trên mã 0.3.0.** Album 3 ảnh PNG, mỗi ảnh khoảng 1,9 MB, tin nhận từ “Pito” rồi bị thu hồi:
+
+| Trường hợp | 0.3.0 | Bản sửa |
+|---|---|---|
+| Không có lỗi | Ảnh tải được | 3/3 ảnh tải được |
+| Worker trả `errBusy` một lần | Chỉ hiện chữ *“Recalled photo — saved on this device”*, không thử lại | 3/3 |
+| Bong bóng bị vẽ lại 150 ms/lần | Chỉ hiện chữ thay thế, không bao giờ tải xong | 3/3 |
+
+**Tự động.** Chạy `npm run verify` trên bản sửa: **99/99 unit test** (thêm 1 test) và **16/16 mục build/trình duyệt** (thêm `tests/viewer-browser.mjs`). Sau 5 chỉnh nhỏ do tự rà soát, đã build lại và chạy lại trên mã cuối: unit test, `viewer-browser`, `media-browser`, `storage-browser`, `features-browser`, tất cả đạt.
+
+| Kiểm tra | Kết quả |
+|---|---|
+| Album 7 ảnh JPEG 1600×1200 (360–420 KB) và 1 ảnh dọc. Worker trả `errBusy` 2 lần; bong bóng bị vẽ lại 10 lần trong lúc tải | 6 ô và “+1” đều tải xong; ảnh dọc đúng tỉ lệ; 18 lần đọc kho (gồm 2 lần lỗi) cho 6 ảnh hiện trên lưới và ảnh dọc, không đọc lại từ đầu |
+| Nhấn ảnh | Mở trình xem; click không lan xuống hàng tin |
+| Chuyển ảnh: nút, ← →, Home/End, dải ảnh nhỏ, vuốt ngang, 60 lần nhấn phím nhanh | Đúng SHA-256 từng ảnh. Phím vẫn dùng được khi nút ở hai đầu bị vô hiệu |
+| Phóng to: nút, con lăn tại con trỏ, nhấn ảnh, `+` `-` `0`; kéo khi đã phóng to | Đạt; kéo khi đã phóng to không chuyển ảnh; chuyển ảnh trở về vừa màn hình |
+| Tải ảnh về | Tên `pitofacebookfixer-photo-6.jpg`, đúng từng byte |
+| Đổi EN → VI khi trình xem đang mở | Nhãn nút, gợi ý, nhãn ô đổi theo |
+| Esc / nhấn vùng tối / ảnh đơn | Đóng; focus trở lại ô ảnh; ảnh đơn không có nút chuyển |
+| Trang *Bản lưu* của extension | Cùng lưới 6+1 ô; trình xem mở và đóng được |
+| Tắt lưu trữ khi trình xem đang mở | Trình xem đóng; mọi URL ảnh bị thu hồi; bật lại thì ảnh hiện lại |
+| Worker: 26 lần đọc phần ảnh khi 3 lượt lưu đang giữ hàng đợi chờ CDN | Trả về trong 2 s, đủ byte. Thất bại trên `background.js` 0.3.0 |
+| Không có lỗi JavaScript chưa xử lý | Đạt |
+
+Báo cáo: `test-results/viewer-browser/report.json`. Ảnh chụp cùng thư mục: `bubble.png`, `viewer.png`, `viewer-zoomed.png`, `archive-viewer.png`. Toàn bộ lượt verify: `test-results/verification.json`, `test-results/verify-viewer.log`.
+
+**Chưa kiểm:** Facebook thật; tin nhận từ tài khoản khác; ảnh thật chụp bằng điện thoại; chat dạng cửa sổ nhỏ (popup) trên trang Facebook.
+
 # Kết quả kiểm thử 0.3.0 — kho an toàn hơn, sao lưu, khóa mật khẩu và hiệu năng
 
 Ngày: 10/11/2026, giờ Việt Nam. Source build: `0.3.0-archive-v1`. Mã nguồn chưa được commit.

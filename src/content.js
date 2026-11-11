@@ -1,7 +1,7 @@
 import { CHANNEL, MAX_BATCH, accountId, messageMeta, validId } from "./shared.js";
 import { validObservation } from "./archive.js";
 import { nativeMessageId, tombstoneBubble } from "./adapter.js";
-import {archivedMedia,sweepArchivedMedia,localizeArchivedMedia} from './media-render.js';
+import {archivedMedia,sweepArchivedMedia,localizeArchivedMedia,clearArchivedMedia} from './media-render.js';
 import {UPLOAD_CHUNK_BYTES,encodeBase64} from './media.js';
 import {tr,localeFor} from './i18n.js';
 
@@ -64,6 +64,8 @@ import {tr,localeFor} from './i18n.js';
       const row = target.closest('[data-pff-row]');
       undoPatch(row && restoredCache.get(row));
     }
+    // Revoke every loaded file and close the photo viewer: nothing stays readable.
+    clearArchivedMedia();
     restoredCache = new WeakMap(); missingCache = new WeakMap();
   }
   function restore(item) {
@@ -104,7 +106,7 @@ import {tr,localeFor} from './i18n.js';
     for (const [name, value] of Object.entries(attributes)) target.setAttribute(name, value.written);
     for (const {node, written} of nodes) node.data = written;
     if(item.assets?.length){
-      const media=document.createElement('span');media.setAttribute('data-pff-media','');target.append(media);saved.patch.media=media;
+      const media=document.createElement('span');media.setAttribute('data-pff-media','');media.style.cssText='display:block;font-style:normal';target.append(media);saved.patch.media=media;
       const key={account:item.account,thread:item.thread,id:item.id};
       saved.patch.dispose=archivedMedia(media,key,item.assets,rpc,()=>settings?.archive&&currentAccount()===saved.item.account&&
         row.isConnected&&nativeMessageId(row)===nativeId&&restoredCache.get(row)===saved,settings.language);

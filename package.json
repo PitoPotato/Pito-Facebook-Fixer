@@ -1,6 +1,6 @@
 {
   "name": "pito-facebook-fixer",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,6 +9,7 @@
     "test:browser": "node tests/browser.mjs",
     "test:bulk": "node tests/bulk.mjs",
     "test:media": "node tests/media-browser.mjs",
+    "test:viewer": "node tests/viewer-browser.mjs",
     "test:popup": "node tests/popup-action.mjs",
     "check": "npm run test && npm run build && npm run test:browser",
     "verify": "node scripts/verify.mjs",

@@ -13,6 +13,14 @@ Quy tắc áp dụng cho mọi mục: làm đúng [AGENTS.md](AGENTS.md) và [QA
 
 Nghiên cứu nền: [docs/message-recovery-research.md](docs/message-recovery-research.md).
 
+## 0.3.1
+
+- [x] **Ảnh thu hồi chỉ hiện chữ “Ảnh đã thu hồi — bản lưu trên máy” thay cho ảnh.** Người dùng báo lỗi này với tin nhận được.
+  - Kết quả: **[Xong]** về test tự động. **Chưa thử trên Facebook thật.**
+  - Nguyên nhân (đã tái hiện bằng fixture): một lần đọc kho lỗi tạm thời thì ảnh không bao giờ được thử lại; Facebook vẽ lại bong bóng thì ảnh bị đọc lại từ đầu; đọc ảnh phải xếp hàng sau các lượt ghi.
+  - Đã làm: thử lại từng phần, dùng chung một lượt đọc cho mọi chỗ hiển thị, đọc tệp không qua hàng đợi ghi. Thêm lưới ảnh trong bong bóng và trình xem phóng to/chuyển ảnh.
+  - Còn phải làm: thử trên Facebook thật với tin **nhận từ một tài khoản thử nghiệm khác** (cần người dùng chỉ định tài khoản gửi), album nhiều ảnh chụp bằng điện thoại, và chat dạng cửa sổ nhỏ (popup).
+
 ## Thứ tự đề xuất
 
 1. **0.3 — Kho và hiệu năng:** viết bài đo (mục 3.1), rồi làm phần 1 và các mục tối ưu 3.2–3.4.

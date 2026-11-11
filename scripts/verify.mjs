@@ -33,6 +33,7 @@ await run("Sustained writes, eviction and restart", "tests/stress.mjs", existsSy
 await run("Bulk replacements, slow commits and delayed tombstones", "tests/bulk.mjs", existsSync(current)?{PFF_TEST_BROWSER:current}:{});
 await run("Emoji, photo and voice persistence, playback and cleanup", "tests/media-browser.mjs", existsSync(current)?{PFF_TEST_BROWSER:current}:{});
 await run("Storage policy, selective cleanup, gallery and unplayed voice", "tests/storage-browser.mjs", existsSync(current)?{PFF_TEST_BROWSER:current}:{});
+await run("Recalled photos in place: album grid, retries, redraws and the zoom/switch viewer", "tests/viewer-browser.mjs", existsSync(current)?{PFF_TEST_BROWSER:current}:{});
 await run("Preferences persistence, concurrent views, startup and new UI", "tests/settings-browser.mjs", existsSync(current)?{PFF_TEST_BROWSER:current}:{});
 await run("Bilingual UI, persisted language and Pito branding", "tests/i18n-browser.mjs", existsSync(current)?{PFF_TEST_BROWSER:current}:{});
 await run("Backups, password lock, sender details, new media kinds and retries", "tests/features-browser.mjs", existsSync(current)?{PFF_TEST_BROWSER:current}:{});
