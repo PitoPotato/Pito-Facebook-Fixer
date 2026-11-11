@@ -4,7 +4,7 @@ export const DEFAULTS = Object.freeze({
   archive: true, antiReload: true, focusGuard: true,
   blockStory: false, theme: 'system', language: 'en',
   maxBytes: 32 * MiB, maxMessages: 20000, retentionDays: 30,
-  cleanupRemoved: true, imageRetentionDays: 0, voiceRetentionDays: 0, videoRetentionDays: 0, fileRetentionDays: 0, autoVoice: true,
+  cleanupRemoved: true, imageRetentionDays: 0, voiceRetentionDays: 0, videoRetentionDays: 0, fileRetentionDays: 0, autoVoice: true, keepTab: false,
   saveStickers: true, saveFiles: true, saveVideo: false, maxVideoMiB: 32,
 });
 export const CHANNEL = "pito-facebook-fixer:v1";
@@ -16,7 +16,7 @@ export function supportedURL(value) {
 }
 export function normalizeSettings(value = {}) {
   const out = { ...DEFAULTS };
-  for (const key of ["archive", "antiReload", "focusGuard", "blockStory", "cleanupRemoved", "autoVoice", "saveStickers", "saveFiles", "saveVideo"]) {
+  for (const key of ["archive", "antiReload", "focusGuard", "blockStory", "cleanupRemoved", "autoVoice", "keepTab", "saveStickers", "saveFiles", "saveVideo"]) {
     if (typeof value[key] === "boolean") out[key] = value[key];
   }
   const clamp = (v, fallback, min, max) => Number.isFinite(v) ? Math.max(min, Math.min(max, Math.round(v))) : fallback;

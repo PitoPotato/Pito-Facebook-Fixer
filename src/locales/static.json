@@ -275,6 +275,14 @@
     "en": "Turn off to protect recalled messages and their files. If protected content fills the budget, keep it and pause new captures.",
     "vi": "Tắt để bảo vệ cả nội dung và tệp. Khi phần được bảo vệ làm đầy kho, giữ nguyên và dừng lưu mới."
   },
+  "keepTab": {
+    "en": "Keep Facebook tabs loaded",
+    "vi": "Giữ tab Facebook luôn hoạt động"
+  },
+  "keepTabHelp": {
+    "en": "Ask Chrome not to unload open Facebook and Messenger tabs to save memory. An unloaded tab saves nothing. Uses more memory.",
+    "vi": "Yêu cầu Chrome không tạm ngưng các tab Facebook, Messenger đang mở để tiết kiệm bộ nhớ. Tab bị tạm ngưng không lưu được gì. Tốn thêm bộ nhớ."
+  },
   "autoVoice": {
     "en": "Download voice notes automatically",
     "vi": "Tự tải voice để lưu"

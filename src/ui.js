@@ -5,9 +5,9 @@ import {tr,localeFor,localizeError} from './i18n.js';
 import {Archive as MessageArchive} from './archive.js';
 import {createBackup,restoreBackup} from './backup.js';
 import {sessionKeys} from './keys.js';
-import {createIcons,MessagesSquare,LayoutGrid,HardDrive,Archive,Activity,ShieldCheck,SunMoon,TextCursorInput,RotateCw,MessageSquareDashed,EyeOff,ArrowUpRight,Info,SlidersHorizontal,ChevronDown,Check,AudioLines,BrushCleaning,Image,RefreshCw,Search,ArrowRight,MonitorCheck,Trash2,Inbox,Clock3,Languages,Sticker,Paperclip,Film,DatabaseBackup,Download,Upload,Lock} from 'lucide';
+import {createIcons,Pin,MessagesSquare,LayoutGrid,HardDrive,Archive,Activity,ShieldCheck,SunMoon,TextCursorInput,RotateCw,MessageSquareDashed,EyeOff,ArrowUpRight,Info,SlidersHorizontal,ChevronDown,Check,AudioLines,BrushCleaning,Image,RefreshCw,Search,ArrowRight,MonitorCheck,Trash2,Inbox,Clock3,Languages,Sticker,Paperclip,Film,DatabaseBackup,Download,Upload,Lock} from 'lucide';
 
-const icons={MessagesSquare,LayoutGrid,HardDrive,Archive,Activity,ShieldCheck,SunMoon,TextCursorInput,RotateCw,MessageSquareDashed,EyeOff,ArrowUpRight,Info,SlidersHorizontal,ChevronDown,Check,AudioLines,BrushCleaning,Image,RefreshCw,Search,ArrowRight,MonitorCheck,Trash2,Inbox,Clock3,Languages,Sticker,Paperclip,Film,DatabaseBackup,Download,Upload,Lock};
+const icons={Pin,MessagesSquare,LayoutGrid,HardDrive,Archive,Activity,ShieldCheck,SunMoon,TextCursorInput,RotateCw,MessageSquareDashed,EyeOff,ArrowUpRight,Info,SlidersHorizontal,ChevronDown,Check,AudioLines,BrushCleaning,Image,RefreshCw,Search,ArrowRight,MonitorCheck,Trash2,Inbox,Clock3,Languages,Sticker,Paperclip,Film,DatabaseBackup,Download,Upload,Lock};
 const paintIcons=()=>createIcons({icons,attrs:{'aria-hidden':'true','stroke-width':1.7}});
 const $=id=>document.getElementById(id),form=$('settings'),popup=document.body.classList.contains('popup');
 let archiveRows=[],archiveViews=[],config=null,lastStats=null,lastTab=null,lastFeedback={key:"reading",state:"saving",params:{}},lastPurge=null,language="en",revision=-1,sequence=0,nextCursor=null,mediaDisposers=[],archiveGeneration=0,archiveLoaded=false,limitsDirty=false,archiveState='removed',archiveQuery='',archiveLocked=false,searchTimer=null,vaultStatus=null,persisted=null,usageBytes=null;

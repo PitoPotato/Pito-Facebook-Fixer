@@ -65,7 +65,7 @@ async function dispatch(message, sender) {
   const ownPage = authorization.kind === "extension";
   const admin = () => { if (!ownPage) throw new Error("errExtensionOnly"); };
   switch (message.type) {
-    case "config": return configuration();
+    case "config": { const current = await configuration(); if (sender.tab?.id != null && current.settings.keepTab) keepTab(sender.tab.id, true); return current; }
     case "assetUpload": return receiveUpload(message, sender);
     case "assetUploadDiscard": {
       for (const id of Array.isArray(message.uploads) ? message.uploads.slice(0, 64) : []) if (uploads.get(id)?.owner === uploadOwner(sender)) uploads.delete(id);
@@ -236,7 +236,14 @@ async function initialize() {
 const startUp = () => exclusive(initialize).then(async () => { await archive.maintain(await settings(), Date.now(), false, patient); await sealRemaining(); }).catch(console.error);
 chrome.runtime.onInstalled.addListener(startUp);
 chrome.runtime.onStartup.addListener(startUp);
+// Optional: ask Chrome's Memory Saver not to unload Facebook tabs, because a
+// discarded tab captures nothing. Applied when a tab asks for its settings and
+// whenever the setting changes; turning it off hands the tabs back to Chrome.
+const FACEBOOK_TABS = ["https://www.facebook.com/*", "https://web.facebook.com/*", "https://www.messenger.com/*"];
+function keepTab(id, keep) { try { chrome.tabs?.update?.(id, { autoDiscardable: !keep })?.catch(() => {}); } catch {} }
+async function keepTabs(keep) { for (const tab of await chrome.tabs.query({ url: FACEBOOK_TABS })) if (tab.autoDiscardable === keep) keepTab(tab.id, keep); }
 chrome.storage.onChanged?.addListener((changes,area)=>{
+  if(area==='local'&&changes.settings?.newValue&&!!changes.settings.newValue.keepTab!==!!changes.settings.oldValue?.keepTab)keepTabs(!!changes.settings.newValue.keepTab).catch(console.error);
   if(area==='local'&&changes.settings?.newValue)configuration().then(current=>broadcast({type:'configUpdate',...current})).catch(console.error);
 });
 // Finishes sealing after the options page closed, or for anything written just
